@@ -24,7 +24,7 @@ class VirtualHeadStartTests(unittest.TestCase):
 
     def test_slider_and_exact_zero_passthrough(self):
         options = HeadStart.INPUT_TYPES()["required"]["head_start_seconds"][1]
-        self.assertEqual((options["min"], options["max"], options["default"], options["display"]), (0, 15, 5, "slider"))
+        self.assertEqual((options["min"], options["max"], options["default"], options["display"]), (0, 15, 5, "number"))
         source = self.conditioning()
         self.assertIs(HeadStart().apply(source, 0)[0], source)
 

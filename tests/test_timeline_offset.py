@@ -47,7 +47,7 @@ class TimelineOffsetTests(unittest.TestCase):
 
     def test_slider_zero_and_model_clone_isolation(self):
         settings = Offset.INPUT_TYPES()["required"]["forward_seconds"][1]
-        self.assertEqual((settings["min"], settings["max"], settings["default"], settings["display"]), (0, 15, 5, "slider"))
+        self.assertEqual((settings["min"], settings["max"], settings["default"], settings["display"]), (0, 15, 5, "number"))
         off = Offset().patch(self.patcher, 0)[0]
         on = Offset().patch(self.patcher, 5)[0]
         self.assertIs(on.model, self.patcher.model)

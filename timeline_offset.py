@@ -26,14 +26,17 @@ class H3GeneratedTimelineOffset:
     def INPUT_TYPES(cls):
         return {"required": {
             "model": ("MODEL", {"tooltip": "Connect after LoRAs and attention patches, before the guider or sampler."}),
-            "forward_seconds": ("FLOAT", {"default": 5.0, "min": 0.0, "max": 15.0, "step": 0.25, "display": "slider",
+            "forward_seconds": ("FLOAT", {"default": 5.0, "min": 0.0, "max": 15.0, "step": 0.25, "display": "number",
                 "tooltip": "Move generated video/audio positions forward relative to fixed text, visual context, and image anchors. Zero disables this patch. With Virtual Head Start, the two offsets add to the first-image separation. Duration and masks stay unchanged."}),
         }}
 
     RETURN_TYPES = ("MODEL",)
-    FUNCTION = "patch"
+    FUNCTION = "execute"
     CATEGORY = "MiniMax H3 Experiments/model"
     DESCRIPTION = "Beta: offset only generated video/audio temporal positions. Keeps text, Omni references, and all keyframes fixed. No extra frames or skipped denoising steps. Can combine with H3 Virtual Head Start. If chained, the last Forward Offset node sets the offset."
+
+    def execute(self, model, forward_seconds=5.0):
+        return {"ui": {"h3_offset_seconds": [forward_seconds]}, "result": self.patch(model, forward_seconds)}
 
     def patch(self, model, forward_seconds=5.0):
         patched = model.clone()

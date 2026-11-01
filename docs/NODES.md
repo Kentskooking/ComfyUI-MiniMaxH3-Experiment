@@ -5,8 +5,10 @@
 ## H3 Virtual Head Start
 
 Connect `Conditioning Combine -> H3 Virtual Head Start -> H3 Masked Conditioning
-Guider`. A single I2V branch can use it before Basic Guider. The slider ranges
+Guider`. A single I2V branch can use it before Basic Guider. The float field ranges
 from 0 to 15 seconds, starts at 5, and uses H3's native 24 fps timebase.
+Type a value or convert the field to a FLOAT input. The slider is read-only;
+connected values appear in the preview when the node executes.
 
 It moves each frame-zero image anchor into the virtual past: 5 seconds places
 it at frame -120 relative to the generated clip. Fractional positions are
@@ -33,8 +35,10 @@ image influence, or reduce sampling time at the same output length.
 ## H3 Generated Timeline Forward Offset (Beta)
 
 Connect `Model / LoRAs / attention patches -> H3 Generated Timeline Forward
-Offset (Beta) -> guider or sampler MODEL input`. The slider is 0-15 seconds,
-default 5. Zero disables the offset; if chained, the last node sets the value.
+Offset (Beta) -> guider or sampler MODEL input`. The float field is 0-15 seconds,
+default 5, with a read-only slider. Type a value or convert it to a FLOAT input;
+connected values appear when the node executes. Zero disables the offset;
+if chained, the last node sets the value.
 
 Only generated video/audio temporal coordinates move forward. Text/visual
 context, Omni references, and all keyframes (including last frames) stay fixed.

@@ -6,14 +6,17 @@ class H3VirtualHeadStart:
     def INPUT_TYPES(cls):
         return {"required": {
             "conditioning": ("CONDITIONING", {"tooltip": "First-frame H3 conditioning, or combined masked branches. Connect before the guider so every branch uses the same head start."}),
-            "head_start_seconds": ("FLOAT", {"default": 5.0, "min": 0.0, "max": 15.0, "step": 0.25, "display": "slider",
+            "head_start_seconds": ("FLOAT", {"default": 5.0, "min": 0.0, "max": 15.0, "step": 0.25, "display": "number",
                 "tooltip": "Move frame-zero image anchors this many seconds before the generated clip. Zero preserves the input. Output duration, masks, and later keyframes keep their existing timing. This does not generate or skip real frames."}),
         }}
 
     RETURN_TYPES = ("CONDITIONING",)
-    FUNCTION = "apply"
+    FUNCTION = "execute"
     CATEGORY = "MiniMax H3 Experiments/conditioning"
     DESCRIPTION = "Experimental virtual pre-roll for H3 first-frame conditioning. Changes anchor positions without adding video/audio frames. Place after Conditioning Combine and before the guider. Omni references have no first-frame anchor."
+
+    def execute(self, conditioning, head_start_seconds=5.0):
+        return {"ui": {"h3_offset_seconds": [head_start_seconds]}, "result": self.apply(conditioning, head_start_seconds)}
 
     def apply(self, conditioning, head_start_seconds=5.0):
         if head_start_seconds == 0:
