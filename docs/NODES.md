@@ -30,6 +30,30 @@ This tests whether temporal distance from the starting image changes the
 result. It does not reproduce the tail of a longer generation, guarantee weaker
 image influence, or reduce sampling time at the same output length.
 
+## H3 Generated Timeline Forward Offset (Beta)
+
+Connect `Model / LoRAs / attention patches -> H3 Generated Timeline Forward
+Offset (Beta) -> guider or sampler MODEL input`. The slider is 0-15 seconds,
+default 5. Zero disables the offset; if chained, the last node sets the value.
+
+Only generated video/audio temporal coordinates move forward. Text/visual
+context, Omni references, and all keyframes (including last frames) stay fixed.
+The existing length controls determine output duration. Masks, frame indexing,
+latent contents, and denoising steps stay unchanged. Works with native H3
+text-to-video, first-frame/FLF, and Omni conditioning.
+
+Use alongside `H3 Virtual Head Start` on the conditioning branch. With both at
+5 seconds, the first image sits at -5 and the generated clip begins at +5
+relative to the original timeline: a 10-second separation. To move generation
+5 seconds past both the original image and text context, use Forward Offset 5
+and Virtual Head Start 0.
+
+This uses a cloned model patcher and a private copy of the position coordinates
+for each forward call. It adds no frames and does not generate a hidden lead-in
+or reproduce the tail of a longer render. It is an experimental positional
+change, with no quality guarantee. Restart ComfyUI after active jobs finish,
+then refresh the browser to load the new node.
+
 ## H3 Omni Reference Blend
 
 Connect two native **MiniMax H3 Reference to Video** conditionings directly to
