@@ -2,6 +2,34 @@
 
 [Installation and examples](../README.md)
 
+## H3 Virtual Head Start
+
+Connect `Conditioning Combine -> H3 Virtual Head Start -> H3 Masked Conditioning
+Guider`. A single I2V branch can use it before Basic Guider. The slider ranges
+from 0 to 15 seconds, starts at 5, and uses H3's native 24 fps timebase.
+
+It moves each frame-zero image anchor into the virtual past: 5 seconds places
+it at frame -120 relative to the generated clip. Fractional positions are
+retained. Zero is an exact pass-through. Later keyframes keep their positions;
+audio attached to a shifted image anchor moves with that anchor.
+Only the VAE anchor's temporal position changes; Qwen text/visual embeddings
+retain their existing positions.
+
+The existing latent/length controls still determine generated duration. Masks,
+prompts, image contents, and generated audio/video length are unchanged. No
+extra frames are allocated or sampled, and the node does not crop actual
+frames. Use the video loader's skip setting separately if you want to advance
+an animated mask.
+
+Use first-frame I2V/FLF conditioning, not Omni references. Apply the node once,
+after combining branches so their anchor positions still match for embedding
+overlap. Unanchored branches in a mixed list pass through; a nonzero head start
+with no frame-zero image anchor reports an error.
+
+This tests whether temporal distance from the starting image changes the
+result. It does not reproduce the tail of a longer generation, guarantee weaker
+image influence, or reduce sampling time at the same output length.
+
 ## H3 Omni Reference Blend
 
 Connect two native **MiniMax H3 Reference to Video** conditionings directly to
