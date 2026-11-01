@@ -1,8 +1,9 @@
 # Example workflows
 
-Install the pack and the example dependencies listed in the main README. Import
-the JSON into ComfyUI, select your media, then review the model selections. No
-model weights or personal reference images/videos are included.
+Install the pack, ComfyUI-VideoHelperSuite, ComfyUI-KJNodes, and
+comfyui_essentials. VideoHelperSuite needs FFmpeg. Import the JSON into ComfyUI,
+select your media, then review the model selections. No model weights or
+personal reference images/videos are included.
 
 ## Concentric red/green canvas
 
@@ -70,5 +71,7 @@ LoRAs matched; the examples do not download missing models.
 | Optional tiny VAE | `models/vae_approx` | `taeh3.safetensors` |
 
 Generation uses Euler/simple, eight steps, sigma shifts 12/3 and CFG 1.
-SageAttention/Triton and the tiny-VAE preview need compatible installations;
-the main README explains how to bypass those optional model patches.
+SageAttention/Triton and the tiny-VAE preview need compatible installations.
+To bypass SageAttention, connect Sigma Shift's model output directly to Model
+Preview Override. If the tiny VAE is also unavailable, bypass both patches and
+connect Sigma Shift directly to the scheduler and guider.
