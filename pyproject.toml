@@ -1,0 +1,17 @@
+[project]
+name = "comfyui-minimaxh3-experiments"
+version = "0.1.0"
+description = "Experimental MiniMax H3 masked conditioning, latent compositing, and reference blending nodes for ComfyUI."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [{name = "kentskooking"}]
+dependencies = ["numpy", "scipy", "Pillow>=10.1.0"]
+
+[project.urls]
+Repository = "https://github.com/Kentskooking/ComfyUI-MiniMaxH3-Experiment"
+"Bug Tracker" = "https://github.com/Kentskooking/ComfyUI-MiniMaxH3-Experiment/issues"
+
+[tool.comfy]
+PublisherId = "kentskooking"
+DisplayName = "MiniMax H3 Experiments"

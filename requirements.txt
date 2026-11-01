@@ -1,0 +1,4 @@
+# Use ComfyUI's existing Python environment and PyTorch installation.
+numpy
+scipy
+Pillow>=10.1.0

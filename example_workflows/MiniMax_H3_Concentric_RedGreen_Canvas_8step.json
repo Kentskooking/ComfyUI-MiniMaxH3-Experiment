@@ -1,0 +1,2700 @@
+{
+  "id": "546394d4-e36c-41dc-b8fe-c165898d6be5",
+  "revision": 0,
+  "last_node_id": 216,
+  "last_link_id": 112,
+  "nodes": [
+    {
+      "id": 4,
+      "type": "PrimitiveStringMultiline",
+      "pos": [
+        430,
+        460
+      ],
+      "size": [
+        440,
+        240
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            20
+          ]
+        }
+      ],
+      "title": "RED PROMPT - scene and motion",
+      "properties": {
+        "Node name for S&R": "PrimitiveStringMultiline"
+      },
+      "widgets_values": [
+        "The subject in the supplied image comes to life with slow, fluid motion. Preserve its recognizable appearance and materials. Natural movement, consistent lighting, and stable detail throughout.\n\nAUDIO: Gentle ambience and natural sounds matching the scene. No music."
+      ],
+      "widgets_values_named": {
+        "value": "The subject in the supplied image comes to life with slow, fluid motion. Preserve its recognizable appearance and materials. Natural movement, consistent lighting, and stable detail throughout.\n\nAUDIO: Gentle ambience and natural sounds matching the scene. No music."
+      }
+    },
+    {
+      "id": 5,
+      "type": "PrimitiveInt",
+      "pos": [
+        1070,
+        -700
+      ],
+      "size": [
+        350,
+        100
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            2,
+            23,
+            65,
+            106
+          ]
+        }
+      ],
+      "title": "LENGTH - 158 frames / full mask + 8-frame hold",
+      "properties": {
+        "Node name for S&R": "PrimitiveInt"
+      },
+      "widgets_values": [
+        158,
+        "fixed"
+      ],
+      "widgets_values_named": {
+        "value": 158,
+        "fixed": "fixed"
+      }
+    },
+    {
+      "id": 6,
+      "type": "UNETLoader",
+      "pos": [
+        0,
+        1850
+      ],
+      "size": [
+        460,
+        120
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            81
+          ]
+        }
+      ],
+      "title": "H3 FL2VA INT8",
+      "properties": {
+        "Node name for S&R": "UNETLoader"
+      },
+      "widgets_values": [
+        "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "default"
+      ],
+      "widgets_values_named": {
+        "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    {
+      "id": 7,
+      "type": "LoraLoaderModelOnly",
+      "pos": [
+        510,
+        1850
+      ],
+      "size": [
+        530,
+        140
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 81
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            82
+          ]
+        }
+      ],
+      "title": "FL2V Turbo - matching 8-step LoRA",
+      "properties": {
+        "Node name for S&R": "LoraLoaderModelOnly"
+      },
+      "widgets_values": [
+        "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+        1
+      ],
+      "widgets_values_named": {
+        "lora_name": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+        "strength_model": 1
+      }
+    },
+    {
+      "id": 8,
+      "type": "MiniMaxH3SigmaShift",
+      "pos": [
+        1100,
+        1850
+      ],
+      "size": [
+        360,
+        130
+      ],
+      "flags": {},
+      "order": 25,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 82
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            83
+          ]
+        }
+      ],
+      "title": "Turbo shifts 12 video / 3 audio",
+      "properties": {
+        "Node name for S&R": "MiniMaxH3SigmaShift"
+      },
+      "widgets_values": [
+        12,
+        3
+      ],
+      "widgets_values_named": {
+        "shift_video": 12,
+        "shift_audio": 3
+      }
+    },
+    {
+      "id": 9,
+      "type": "MiniMaxH3MemoryEfficientSageAttentionPatch",
+      "pos": [
+        1510,
+        1850
+      ],
+      "size": [
+        450,
+        100
+      ],
+      "flags": {},
+      "order": 29,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 83
+        }
+      ],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "links": [
+            84
+          ]
+        }
+      ],
+      "title": "H3 memory-efficient SageAttention",
+      "properties": {
+        "Node name for S&R": "MiniMaxH3MemoryEfficientSageAttentionPatch"
+      }
+    },
+    {
+      "id": 10,
+      "type": "ModelPreviewOverrideKJ",
+      "pos": [
+        2020,
+        1850
+      ],
+      "size": [
+        470,
+        280
+      ],
+      "flags": {},
+      "order": 32,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 84
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            85,
+            86
+          ]
+        }
+      ],
+      "title": "H3 tiny VAE preview",
+      "properties": {
+        "Node name for S&R": "ModelPreviewOverrideKJ",
+        "kjPovPanelH": 60
+      },
+      "widgets_values": [
+        512,
+        75,
+        true,
+        1,
+        12,
+        "taeh3.safetensors",
+        ""
+      ],
+      "widgets_values_named": {
+        "max_resolution": 512,
+        "jpeg_quality": 75,
+        "suppress_default_preview": true,
+        "preview_frames": 1,
+        "preview_fps": 12,
+        "tiny_vae": "taeh3.safetensors",
+        "preview": ""
+      }
+    },
+    {
+      "id": 11,
+      "type": "VAELoader",
+      "pos": [
+        510,
+        2170
+      ],
+      "size": [
+        530,
+        100
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            19,
+            61,
+            94,
+            103
+          ]
+        }
+      ],
+      "title": "H3 video VAE - INT8 encode and decode",
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "minimax_h3_video_vae_int8_convrot.safetensors"
+      ],
+      "widgets_values_named": {
+        "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+      }
+    },
+    {
+      "id": 12,
+      "type": "CLIPLoader",
+      "pos": [
+        0,
+        2170
+      ],
+      "size": [
+        460,
+        150
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            18,
+            60,
+            102
+          ]
+        }
+      ],
+      "title": "H3 Qwen3-VL - NVFP4",
+      "properties": {
+        "Node name for S&R": "CLIPLoader"
+      },
+      "widgets_values": [
+        "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "minimax",
+        "default"
+      ],
+      "widgets_values_named": {
+        "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "type": "minimax",
+        "device": "default"
+      }
+    },
+    {
+      "id": 13,
+      "type": "VAELoader",
+      "pos": [
+        1100,
+        2170
+      ],
+      "size": [
+        460,
+        100
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            96
+          ]
+        }
+      ],
+      "title": "H3 audio VAE",
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "minimax_h3_audio_vae_fp32.safetensors"
+      ],
+      "widgets_values_named": {
+        "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+      }
+    },
+    {
+      "id": 15,
+      "type": "RandomNoise",
+      "pos": [
+        2660,
+        680
+      ],
+      "size": [
+        420,
+        110
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "NOISE",
+          "type": "NOISE",
+          "links": [
+            88
+          ]
+        }
+      ],
+      "title": "FIXED seed - keep for all comparisons",
+      "properties": {
+        "Node name for S&R": "RandomNoise"
+      },
+      "widgets_values": [
+        525150157505253,
+        "fixed"
+      ],
+      "widgets_values_named": {
+        "noise_seed": 525150157505253,
+        "control_after_generate": "fixed"
+      }
+    },
+    {
+      "id": 16,
+      "type": "KSamplerSelect",
+      "pos": [
+        2660,
+        880
+      ],
+      "size": [
+        420,
+        90
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "SAMPLER",
+          "type": "SAMPLER",
+          "links": [
+            90
+          ]
+        }
+      ],
+      "title": "Euler - one evaluation per step",
+      "properties": {
+        "Node name for S&R": "KSamplerSelect"
+      },
+      "widgets_values": [
+        "euler"
+      ],
+      "widgets_values_named": {
+        "sampler_name": "euler"
+      }
+    },
+    {
+      "id": 17,
+      "type": "BasicScheduler",
+      "pos": [
+        2660,
+        1060
+      ],
+      "size": [
+        420,
+        150
+      ],
+      "flags": {},
+      "order": 35,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 85
+        }
+      ],
+      "outputs": [
+        {
+          "name": "SIGMAS",
+          "type": "SIGMAS",
+          "links": [
+            91
+          ]
+        }
+      ],
+      "title": "8 steps - simple / full denoise",
+      "properties": {
+        "Node name for S&R": "BasicScheduler"
+      },
+      "widgets_values": [
+        "simple",
+        8,
+        1
+      ],
+      "widgets_values_named": {
+        "scheduler": "simple",
+        "steps": 8,
+        "denoise": 1
+      }
+    },
+    {
+      "id": 18,
+      "type": "H3ExperimentsMaskedConditioningGuider",
+      "pos": [
+        2660,
+        0
+      ],
+      "size": [
+        420,
+        220
+      ],
+      "flags": {},
+      "order": 38,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 86
+        },
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 110
+        }
+      ],
+      "outputs": [
+        {
+          "name": "GUIDER",
+          "type": "GUIDER",
+          "links": [
+            89
+          ]
+        }
+      ],
+      "title": "FIVE COLORS + CANVAS - embedding overlap",
+      "properties": {
+        "Node name for S&R": "H3ExperimentsMaskedConditioningGuider"
+      },
+      "widgets_values": [
+        "frames",
+        "embedding_overlap",
+        1
+      ],
+      "widgets_values_named": {
+        "mask_space": "frames",
+        "blend_mode": "embedding_overlap",
+        "overlap_mix": 1
+      }
+    },
+    {
+      "id": 19,
+      "type": "SamplerCustomAdvanced",
+      "pos": [
+        2660,
+        310
+      ],
+      "size": [
+        420,
+        260
+      ],
+      "flags": {},
+      "order": 39,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "noise",
+          "type": "NOISE",
+          "link": 88
+        },
+        {
+          "name": "guider",
+          "type": "GUIDER",
+          "link": 89
+        },
+        {
+          "name": "sampler",
+          "type": "SAMPLER",
+          "link": 90
+        },
+        {
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "link": 91
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 92
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "LATENT",
+          "links": [
+            93,
+            95
+          ]
+        },
+        {
+          "name": "denoised_output",
+          "type": "LATENT",
+          "links": []
+        }
+      ],
+      "title": "Sample H3 video and audio",
+      "properties": {
+        "Node name for S&R": "SamplerCustomAdvanced"
+      }
+    },
+    {
+      "id": 20,
+      "type": "VAEDecode",
+      "pos": [
+        3150,
+        0
+      ],
+      "size": [
+        380,
+        120
+      ],
+      "flags": {},
+      "order": 40,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 93
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 94
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            97
+          ]
+        }
+      ],
+      "title": "Decode full-quality video",
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      }
+    },
+    {
+      "id": 21,
+      "type": "VAEDecodeAudio",
+      "pos": [
+        3150,
+        200
+      ],
+      "size": [
+        380,
+        120
+      ],
+      "flags": {},
+      "order": 41,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 95
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 96
+        }
+      ],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            98
+          ]
+        }
+      ],
+      "title": "Decode generated audio",
+      "properties": {
+        "Node name for S&R": "VAEDecodeAudio"
+      }
+    },
+    {
+      "id": 22,
+      "type": "CreateVideo",
+      "pos": [
+        3125.25,
+        397.63499999999993
+      ],
+      "size": [
+        380,
+        220
+      ],
+      "flags": {},
+      "order": 42,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 97
+        },
+        {
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": 98
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            99
+          ]
+        }
+      ],
+      "title": "Assemble 24 fps video",
+      "properties": {
+        "Node name for S&R": "CreateVideo"
+      },
+      "widgets_values": [
+        24,
+        "auto",
+        "sRGB",
+        "none"
+      ],
+      "widgets_values_named": {
+        "fps": 24,
+        "bit_depth": "auto",
+        "color_space": "sRGB",
+        "codec": "none"
+      }
+    },
+    {
+      "id": 23,
+      "type": "SaveVideo",
+      "pos": [
+        3620,
+        0
+      ],
+      "size": [
+        540,
+        880
+      ],
+      "flags": {},
+      "order": 43,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 99
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": []
+        }
+      ],
+      "title": "Save five-color + canvas experiment",
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/MiniMax_H3_Concentric_RedGreen_Canvas_8step",
+        "mp4",
+        "h264",
+        "auto",
+        "auto"
+      ],
+      "widgets_values_named": {
+        "filename_prefix": "video/MiniMax_H3_Concentric_RedGreen_Canvas_8step",
+        "format": "mp4",
+        "format.codec": "h264",
+        "format.codec.encoding": "auto",
+        "codec": "auto"
+      }
+    },
+    {
+      "id": 24,
+      "type": "MarkdownNote",
+      "pos": [
+        2220,
+        -2000
+      ],
+      "size": [
+        1400,
+        1550
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "START HERE - concentric colors and canvas",
+      "properties": {},
+      "widgets_values": [
+        "# Concentric red / green mask + base canvas\nUpload the included example_workflows/assets/Concentric_Center_Circle_RedGreen_150f.mp4 in the mask video loader, or copy it into ComfyUI/input and select it. See the pack README for example dependencies.\n\nSelect an image in each of the three empty image loaders: CANVAS, RED, and GREEN. Each branch has its own editable prompt. All three use first-image conditioning; no last frame is connected.\n\nThe red and green areas follow the supplied animated mask. The CANVAS branch is global context that participates everywhere in the same generation. Its strength starts at 0.65, matching the source workflow. This is one sampling process, not a rendered background with two finished videos overlaid.\n\n## Mask profiles and mixing\nThe source workflow's average_inside profiles are retained: each color has weight 0.5 inside its mask and zero outside. Canvas strength stays independent. embedding_overlap and overlap_mix=1 enable the existing pairwise conditioning averages wherever weights overlap.\n\nChoose interior_gradient on either profile for adjustable inward transition and outer fade. These widths are in mask pixels at 512 x 512. Smoothstep applies to interior_gradient. The blur control applies to gaussian mode. Width, outer fade, curve, and blur do not change average_inside.\n\n## Timing and generation\nThe mask is 150 frames at 24 fps. All frames are used in order, with no skipped frames or retiming. The final frame is held for eight extra frames to match H3's 158-frame output length (about 6.58 seconds). Canvas size is 512 x 512, matching the supplied output workflow.\n\nThe original FL2VA INT8 model, matching eight-step LoRA, Euler/simple sampler, SageAttention, fixed seed, and audio/video decoding are retained. No upscaling is included.\n"
+      ],
+      "widgets_values_named": {
+        "text": "# Concentric red / green mask + base canvas\nUpload the included example_workflows/assets/Concentric_Center_Circle_RedGreen_150f.mp4 in the mask video loader, or copy it into ComfyUI/input and select it. See the pack README for example dependencies.\n\nSelect an image in each of the three empty image loaders: CANVAS, RED, and GREEN. Each branch has its own editable prompt. All three use first-image conditioning; no last frame is connected.\n\nThe red and green areas follow the supplied animated mask. The CANVAS branch is global context that participates everywhere in the same generation. Its strength starts at 0.65, matching the source workflow. This is one sampling process, not a rendered background with two finished videos overlaid.\n\n## Mask profiles and mixing\nThe source workflow's average_inside profiles are retained: each color has weight 0.5 inside its mask and zero outside. Canvas strength stays independent. embedding_overlap and overlap_mix=1 enable the existing pairwise conditioning averages wherever weights overlap.\n\nChoose interior_gradient on either profile for adjustable inward transition and outer fade. These widths are in mask pixels at 512 x 512. Smoothstep applies to interior_gradient. The blur control applies to gaussian mode. Width, outer fade, curve, and blur do not change average_inside.\n\n## Timing and generation\nThe mask is 150 frames at 24 fps. All frames are used in order, with no skipped frames or retiming. The final frame is held for eight extra frames to match H3's 158-frame output length (about 6.58 seconds). Canvas size is 512 x 512, matching the supplied output workflow.\n\nThe original FL2VA INT8 model, matching eight-step LoRA, Euler/simple sampler, SageAttention, fixed seed, and audio/video decoding are retained. No upscaling is included.\n"
+      },
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 51,
+      "type": "VHS_LoadVideo",
+      "pos": [
+        0,
+        -1050
+      ],
+      "size": [
+        460,
+        740
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "meta_batch",
+          "shape": 7,
+          "type": "VHS_BatchManager",
+          "link": null
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        },
+        {
+          "name": "frame_count",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": []
+        },
+        {
+          "name": "video_info",
+          "type": "VHS_VIDEOINFO",
+          "links": []
+        }
+      ],
+      "title": "CONCENTRIC MASK - upload included clip",
+      "properties": {
+        "Node name for S&R": "VHS_LoadVideo"
+      },
+      "widgets_values": {
+        "video": "Concentric_Center_Circle_RedGreen_150f.mp4",
+        "force_rate": 24,
+        "custom_width": 512,
+        "custom_height": 512,
+        "frame_load_cap": 0,
+        "skip_first_frames": 0,
+        "select_every_nth": 1,
+        "format": "None",
+        "choose video to upload": "image"
+      },
+      "widgets_values_named": {
+        "video": "Concentric_Center_Circle_RedGreen_150f.mp4",
+        "force_rate": 24,
+        "custom_width": 512,
+        "custom_height": 512,
+        "frame_load_cap": 0,
+        "skip_first_frames": 0,
+        "select_every_nth": 1,
+        "format": "None",
+        "choose video to upload": "image"
+      }
+    },
+    {
+      "id": 200,
+      "type": "PrimitiveInt",
+      "pos": [
+        530,
+        -700
+      ],
+      "size": [
+        230,
+        100
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            21,
+            63,
+            104
+          ]
+        }
+      ],
+      "title": "CANVAS WIDTH",
+      "properties": {
+        "Node name for S&R": "PrimitiveInt"
+      },
+      "widgets_values": [
+        512,
+        "fixed"
+      ],
+      "widgets_values_named": {
+        "value": 512,
+        "fixed": "fixed"
+      }
+    },
+    {
+      "id": 201,
+      "type": "PrimitiveInt",
+      "pos": [
+        800,
+        -700
+      ],
+      "size": [
+        230,
+        100
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            22,
+            64,
+            105
+          ]
+        }
+      ],
+      "title": "CANVAS HEIGHT",
+      "properties": {
+        "Node name for S&R": "PrimitiveInt"
+      },
+      "widgets_values": [
+        512,
+        "fixed"
+      ],
+      "widgets_values_named": {
+        "value": 512,
+        "fixed": "fixed"
+      }
+    },
+    {
+      "id": 202,
+      "type": "PrimitiveFloat",
+      "pos": [
+        1430,
+        -900
+      ],
+      "size": [
+        370,
+        100
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [
+            26,
+            68
+          ]
+        }
+      ],
+      "title": "BOTH COLORS - interior transition width",
+      "properties": {
+        "Node name for S&R": "PrimitiveFloat"
+      },
+      "widgets_values": [
+        32
+      ],
+      "widgets_values_named": {
+        "value": 32
+      }
+    },
+    {
+      "id": 203,
+      "type": "PrimitiveFloat",
+      "pos": [
+        1430,
+        -720
+      ],
+      "size": [
+        370,
+        100
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [
+            27,
+            69
+          ]
+        }
+      ],
+      "title": "BOTH COLORS - interior outer fade",
+      "properties": {
+        "Node name for S&R": "PrimitiveFloat"
+      },
+      "widgets_values": [
+        32
+      ],
+      "widgets_values_named": {
+        "value": 32
+      }
+    },
+    {
+      "id": 204,
+      "type": "PrimitiveInt",
+      "pos": [
+        1430,
+        -540
+      ],
+      "size": [
+        370,
+        100
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            28,
+            70
+          ]
+        }
+      ],
+      "title": "BOTH COLORS - Gaussian blur",
+      "properties": {
+        "Node name for S&R": "PrimitiveInt"
+      },
+      "widgets_values": [
+        32,
+        "fixed"
+      ],
+      "widgets_values_named": {
+        "value": 32,
+        "fixed": "fixed"
+      }
+    },
+    {
+      "id": 209,
+      "type": "ImageExpandBatch+",
+      "pos": [
+        0,
+        -250
+      ],
+      "size": [
+        460,
+        130
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "size",
+          "type": "INT",
+          "widget": {
+            "name": "size"
+          },
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            24,
+            66
+          ]
+        }
+      ],
+      "title": "Keep all 150 mask frames; hold last to output length",
+      "properties": {
+        "Node name for S&R": "ImageExpandBatch+"
+      },
+      "widgets_values": [
+        158,
+        "repeat last"
+      ],
+      "widgets_values_named": {
+        "size": 158,
+        "method": "repeat last"
+      }
+    },
+    {
+      "id": 110,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        380,
+        480
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            17
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "RED IMAGE - choose your image",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "",
+        "upload": "image"
+      }
+    },
+    {
+      "id": 111,
+      "type": "MiniMaxH3ImageToVideo",
+      "pos": [
+        430,
+        0
+      ],
+      "size": [
+        440,
+        420
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 18
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 19
+        },
+        {
+          "name": "first_frame",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 17
+        },
+        {
+          "name": "last_frame",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": 20
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": 21
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": 22
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "widget": {
+            "name": "length"
+          },
+          "link": 23
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            29
+          ]
+        },
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": []
+        }
+      ],
+      "title": "RED - image-to-video conditioning",
+      "properties": {
+        "Node name for S&R": "MiniMaxH3ImageToVideo"
+      },
+      "widgets_values": [
+        "The subject in the supplied image comes to life with slow, fluid motion. Preserve its recognizable appearance and materials. Natural movement, consistent lighting, and stable detail throughout.\n\nAUDIO: Gentle ambience and natural sounds matching the scene. No music.",
+        512,
+        512,
+        158
+      ],
+      "widgets_values_named": {
+        "prompt": "The subject in the supplied image comes to life with slow, fluid motion. Preserve its recognizable appearance and materials. Natural movement, consistent lighting, and stable detail throughout.\n\nAUDIO: Gentle ambience and natural sounds matching the scene. No music.",
+        "width": 512,
+        "height": 512,
+        "length": 158
+      }
+    },
+    {
+      "id": 112,
+      "type": "ColorToMask",
+      "pos": [
+        930,
+        0
+      ],
+      "size": [
+        350,
+        260
+      ],
+      "flags": {},
+      "order": 26,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 24
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            25
+          ]
+        }
+      ],
+      "title": "Extract RED region",
+      "properties": {
+        "Node name for S&R": "ColorToMask"
+      },
+      "widgets_values": [
+        false,
+        255,
+        0,
+        0,
+        40,
+        16
+      ],
+      "widgets_values_named": {
+        "invert": false,
+        "red": 255,
+        "green": 0,
+        "blue": 0,
+        "threshold": 40,
+        "per_batch": 16
+      }
+    },
+    {
+      "id": 113,
+      "type": "H3ExperimentsMaskProfile",
+      "pos": [
+        1340,
+        0
+      ],
+      "size": [
+        370,
+        320
+      ],
+      "flags": {},
+      "order": 30,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 25
+        },
+        {
+          "name": "transition_width",
+          "type": "FLOAT",
+          "widget": {
+            "name": "transition_width"
+          },
+          "link": 26
+        },
+        {
+          "name": "outer_fade",
+          "type": "FLOAT",
+          "widget": {
+            "name": "outer_fade"
+          },
+          "link": 27
+        },
+        {
+          "name": "blur",
+          "type": "INT",
+          "widget": {
+            "name": "blur"
+          },
+          "link": 28
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mask_A",
+          "type": "MASK",
+          "links": [
+            30
+          ]
+        },
+        {
+          "name": "mask_B",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "RED - mask profile",
+      "properties": {
+        "Node name for S&R": "H3ExperimentsMaskProfile"
+      },
+      "widgets_values": [
+        "average_inside",
+        32,
+        32,
+        "smoothstep",
+        32
+      ],
+      "widgets_values_named": {
+        "mode": "average_inside",
+        "transition_width": 32,
+        "outer_fade": 32,
+        "curve": "smoothstep",
+        "blur": 32
+      }
+    },
+    {
+      "id": 114,
+      "type": "ConditioningSetMask",
+      "pos": [
+        1780,
+        0
+      ],
+      "size": [
+        330,
+        150
+      ],
+      "flags": {},
+      "order": 33,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 29
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 30
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            74
+          ]
+        }
+      ],
+      "title": "RED - conditioning strength",
+      "properties": {
+        "Node name for S&R": "ConditioningSetMask"
+      },
+      "widgets_values": [
+        1,
+        "default"
+      ],
+      "widgets_values_named": {
+        "strength": 1,
+        "set_cond_area": "default"
+      }
+    },
+    {
+      "id": 140,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        850
+      ],
+      "size": [
+        380,
+        480
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            59
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "GREEN IMAGE - choose your image",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "",
+        "upload": "image"
+      }
+    },
+    {
+      "id": 141,
+      "type": "MiniMaxH3ImageToVideo",
+      "pos": [
+        430,
+        850
+      ],
+      "size": [
+        440,
+        420
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 60
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 61
+        },
+        {
+          "name": "first_frame",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 59
+        },
+        {
+          "name": "last_frame",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": 62
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": 63
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": 64
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "widget": {
+            "name": "length"
+          },
+          "link": 65
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            71
+          ]
+        },
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": []
+        }
+      ],
+      "title": "GREEN - image-to-video conditioning",
+      "properties": {
+        "Node name for S&R": "MiniMaxH3ImageToVideo"
+      },
+      "widgets_values": [
+        "The subject in the supplied image moves gently as its forms and textures evolve. Preserve its recognizable appearance and visual character. Smooth motion, consistent lighting, and stable detail throughout.\n\nAUDIO: Gentle ambience and natural sounds matching the scene. No music.",
+        512,
+        512,
+        158
+      ],
+      "widgets_values_named": {
+        "prompt": "The subject in the supplied image moves gently as its forms and textures evolve. Preserve its recognizable appearance and visual character. Smooth motion, consistent lighting, and stable detail throughout.\n\nAUDIO: Gentle ambience and natural sounds matching the scene. No music.",
+        "width": 512,
+        "height": 512,
+        "length": 158
+      }
+    },
+    {
+      "id": 142,
+      "type": "ColorToMask",
+      "pos": [
+        930,
+        850
+      ],
+      "size": [
+        350,
+        260
+      ],
+      "flags": {},
+      "order": 27,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 66
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            67
+          ]
+        }
+      ],
+      "title": "Extract GREEN region",
+      "properties": {
+        "Node name for S&R": "ColorToMask"
+      },
+      "widgets_values": [
+        false,
+        0,
+        255,
+        0,
+        40,
+        16
+      ],
+      "widgets_values_named": {
+        "invert": false,
+        "red": 0,
+        "green": 255,
+        "blue": 0,
+        "threshold": 40,
+        "per_batch": 16
+      }
+    },
+    {
+      "id": 143,
+      "type": "H3ExperimentsMaskProfile",
+      "pos": [
+        1340,
+        850
+      ],
+      "size": [
+        370,
+        320
+      ],
+      "flags": {},
+      "order": 31,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 67
+        },
+        {
+          "name": "transition_width",
+          "type": "FLOAT",
+          "widget": {
+            "name": "transition_width"
+          },
+          "link": 68
+        },
+        {
+          "name": "outer_fade",
+          "type": "FLOAT",
+          "widget": {
+            "name": "outer_fade"
+          },
+          "link": 69
+        },
+        {
+          "name": "blur",
+          "type": "INT",
+          "widget": {
+            "name": "blur"
+          },
+          "link": 70
+        }
+      ],
+      "outputs": [
+        {
+          "name": "mask_A",
+          "type": "MASK",
+          "links": [
+            72
+          ]
+        },
+        {
+          "name": "mask_B",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "GREEN - mask profile",
+      "properties": {
+        "Node name for S&R": "H3ExperimentsMaskProfile"
+      },
+      "widgets_values": [
+        "average_inside",
+        32,
+        32,
+        "smoothstep",
+        32
+      ],
+      "widgets_values_named": {
+        "mode": "average_inside",
+        "transition_width": 32,
+        "outer_fade": 32,
+        "curve": "smoothstep",
+        "blur": 32
+      }
+    },
+    {
+      "id": 144,
+      "type": "ConditioningSetMask",
+      "pos": [
+        1780,
+        850
+      ],
+      "size": [
+        330,
+        150
+      ],
+      "flags": {},
+      "order": 34,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 71
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 72
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            112
+          ]
+        }
+      ],
+      "title": "GREEN - conditioning strength",
+      "properties": {
+        "Node name for S&R": "ConditioningSetMask"
+      },
+      "widgets_values": [
+        1,
+        "default"
+      ],
+      "widgets_values_named": {
+        "strength": 1,
+        "set_cond_area": "default"
+      }
+    },
+    {
+      "id": 180,
+      "type": "ConditioningCombine",
+      "pos": [
+        2200,
+        0
+      ],
+      "size": [
+        360,
+        100
+      ],
+      "flags": {},
+      "order": 36,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning_1",
+          "type": "CONDITIONING",
+          "link": 74
+        },
+        {
+          "name": "conditioning_2",
+          "type": "CONDITIONING",
+          "link": 112
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            108
+          ]
+        }
+      ],
+      "title": "Combine RED + GREEN entries",
+      "properties": {
+        "Node name for S&R": "ConditioningCombine"
+      }
+    },
+    {
+      "id": 211,
+      "type": "LoadImage",
+      "pos": [
+        0,
+        -2000
+      ],
+      "size": [
+        400,
+        520
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            100
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "CANVAS IMAGE - choose your image",
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "",
+        "upload": "image"
+      }
+    },
+    {
+      "id": 212,
+      "type": "PrimitiveStringMultiline",
+      "pos": [
+        460,
+        -2000
+      ],
+      "size": [
+        760,
+        380
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            101
+          ]
+        }
+      ],
+      "title": "CANVAS PROMPT - background scene and motion",
+      "properties": {
+        "Node name for S&R": "PrimitiveStringMultiline"
+      },
+      "widgets_values": [
+        "A continuous background scene based on the supplied image, with subtle environmental motion and gentle camera drift. Preserve its atmosphere, lighting, and visual detail. Smooth, coherent movement throughout.\n\nAUDIO: Gentle ambience and natural sounds matching the scene. No music."
+      ],
+      "widgets_values_named": {
+        "value": "A continuous background scene based on the supplied image, with subtle environmental motion and gentle camera drift. Preserve its atmosphere, lighting, and visual detail. Smooth, coherent movement throughout.\n\nAUDIO: Gentle ambience and natural sounds matching the scene. No music."
+      }
+    },
+    {
+      "id": 213,
+      "type": "MiniMaxH3ImageToVideo",
+      "pos": [
+        1280,
+        -2000
+      ],
+      "size": [
+        450,
+        430
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 102
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 103
+        },
+        {
+          "name": "first_frame",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 100
+        },
+        {
+          "name": "last_frame",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": 101
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": 104
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": 105
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "widget": {
+            "name": "length"
+          },
+          "link": 106
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            107
+          ]
+        },
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            92
+          ]
+        }
+      ],
+      "title": "CANVAS - image-to-video conditioning",
+      "properties": {
+        "Node name for S&R": "MiniMaxH3ImageToVideo"
+      },
+      "widgets_values": [
+        "A continuous background scene based on the supplied image, with subtle environmental motion and gentle camera drift. Preserve its atmosphere, lighting, and visual detail. Smooth, coherent movement throughout.\n\nAUDIO: Gentle ambience and natural sounds matching the scene. No music.",
+        512,
+        512,
+        158
+      ],
+      "widgets_values_named": {
+        "prompt": "A continuous background scene based on the supplied image, with subtle environmental motion and gentle camera drift. Preserve its atmosphere, lighting, and visual detail. Smooth, coherent movement throughout.\n\nAUDIO: Gentle ambience and natural sounds matching the scene. No music.",
+        "width": 512,
+        "height": 512,
+        "length": 158
+      }
+    },
+    {
+      "id": 214,
+      "type": "ConditioningSetAreaStrength",
+      "pos": [
+        1780,
+        -2000
+      ],
+      "size": [
+        340,
+        130
+      ],
+      "flags": {},
+      "order": 28,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 107
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            109
+          ]
+        }
+      ],
+      "title": "CANVAS STRENGTH - global influence",
+      "properties": {
+        "Node name for S&R": "ConditioningSetAreaStrength"
+      },
+      "widgets_values": [
+        0.65
+      ],
+      "widgets_values_named": {
+        "strength": 0.65
+      }
+    },
+    {
+      "id": 215,
+      "type": "ConditioningCombine",
+      "pos": [
+        2200,
+        250
+      ],
+      "size": [
+        370,
+        130
+      ],
+      "flags": {},
+      "order": 37,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning_1",
+          "type": "CONDITIONING",
+          "link": 108
+        },
+        {
+          "name": "conditioning_2",
+          "type": "CONDITIONING",
+          "link": 109
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            110
+          ]
+        }
+      ],
+      "title": "Combine two colors + global CANVAS",
+      "properties": {
+        "Node name for S&R": "ConditioningCombine"
+      }
+    },
+    {
+      "id": 216,
+      "type": "PrimitiveStringMultiline",
+      "pos": [
+        430,
+        1310
+      ],
+      "size": [
+        440,
+        240
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            62
+          ]
+        }
+      ],
+      "title": "GREEN PROMPT - scene and motion",
+      "properties": {
+        "Node name for S&R": "PrimitiveStringMultiline"
+      },
+      "widgets_values": [
+        "The subject in the supplied image moves gently as its forms and textures evolve. Preserve its recognizable appearance and visual character. Smooth motion, consistent lighting, and stable detail throughout.\n\nAUDIO: Gentle ambience and natural sounds matching the scene. No music."
+      ],
+      "widgets_values_named": {
+        "value": "The subject in the supplied image moves gently as its forms and textures evolve. Preserve its recognizable appearance and visual character. Smooth motion, consistent lighting, and stable detail throughout.\n\nAUDIO: Gentle ambience and natural sounds matching the scene. No music."
+      }
+    }
+  ],
+  "links": [
+    [
+      1,
+      51,
+      0,
+      209,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      5,
+      0,
+      209,
+      1,
+      "INT"
+    ],
+    [
+      17,
+      110,
+      0,
+      111,
+      2,
+      "IMAGE"
+    ],
+    [
+      18,
+      12,
+      0,
+      111,
+      0,
+      "CLIP"
+    ],
+    [
+      19,
+      11,
+      0,
+      111,
+      1,
+      "VAE"
+    ],
+    [
+      20,
+      4,
+      0,
+      111,
+      4,
+      "STRING"
+    ],
+    [
+      21,
+      200,
+      0,
+      111,
+      5,
+      "INT"
+    ],
+    [
+      22,
+      201,
+      0,
+      111,
+      6,
+      "INT"
+    ],
+    [
+      23,
+      5,
+      0,
+      111,
+      7,
+      "INT"
+    ],
+    [
+      24,
+      209,
+      0,
+      112,
+      0,
+      "IMAGE"
+    ],
+    [
+      25,
+      112,
+      0,
+      113,
+      0,
+      "MASK"
+    ],
+    [
+      26,
+      202,
+      0,
+      113,
+      1,
+      "FLOAT"
+    ],
+    [
+      27,
+      203,
+      0,
+      113,
+      2,
+      "FLOAT"
+    ],
+    [
+      28,
+      204,
+      0,
+      113,
+      3,
+      "INT"
+    ],
+    [
+      29,
+      111,
+      0,
+      114,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      30,
+      113,
+      0,
+      114,
+      1,
+      "MASK"
+    ],
+    [
+      59,
+      140,
+      0,
+      141,
+      2,
+      "IMAGE"
+    ],
+    [
+      60,
+      12,
+      0,
+      141,
+      0,
+      "CLIP"
+    ],
+    [
+      61,
+      11,
+      0,
+      141,
+      1,
+      "VAE"
+    ],
+    [
+      62,
+      216,
+      0,
+      141,
+      4,
+      "STRING"
+    ],
+    [
+      63,
+      200,
+      0,
+      141,
+      5,
+      "INT"
+    ],
+    [
+      64,
+      201,
+      0,
+      141,
+      6,
+      "INT"
+    ],
+    [
+      65,
+      5,
+      0,
+      141,
+      7,
+      "INT"
+    ],
+    [
+      66,
+      209,
+      0,
+      142,
+      0,
+      "IMAGE"
+    ],
+    [
+      67,
+      142,
+      0,
+      143,
+      0,
+      "MASK"
+    ],
+    [
+      68,
+      202,
+      0,
+      143,
+      1,
+      "FLOAT"
+    ],
+    [
+      69,
+      203,
+      0,
+      143,
+      2,
+      "FLOAT"
+    ],
+    [
+      70,
+      204,
+      0,
+      143,
+      3,
+      "INT"
+    ],
+    [
+      71,
+      141,
+      0,
+      144,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      72,
+      143,
+      0,
+      144,
+      1,
+      "MASK"
+    ],
+    [
+      74,
+      114,
+      0,
+      180,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      81,
+      6,
+      0,
+      7,
+      0,
+      "MODEL"
+    ],
+    [
+      82,
+      7,
+      0,
+      8,
+      0,
+      "MODEL"
+    ],
+    [
+      83,
+      8,
+      0,
+      9,
+      0,
+      "MODEL"
+    ],
+    [
+      84,
+      9,
+      0,
+      10,
+      0,
+      "MODEL"
+    ],
+    [
+      85,
+      10,
+      0,
+      17,
+      0,
+      "MODEL"
+    ],
+    [
+      86,
+      10,
+      0,
+      18,
+      0,
+      "MODEL"
+    ],
+    [
+      88,
+      15,
+      0,
+      19,
+      0,
+      "NOISE"
+    ],
+    [
+      89,
+      18,
+      0,
+      19,
+      1,
+      "GUIDER"
+    ],
+    [
+      90,
+      16,
+      0,
+      19,
+      2,
+      "SAMPLER"
+    ],
+    [
+      91,
+      17,
+      0,
+      19,
+      3,
+      "SIGMAS"
+    ],
+    [
+      92,
+      213,
+      1,
+      19,
+      4,
+      "LATENT"
+    ],
+    [
+      93,
+      19,
+      0,
+      20,
+      0,
+      "LATENT"
+    ],
+    [
+      94,
+      11,
+      0,
+      20,
+      1,
+      "VAE"
+    ],
+    [
+      95,
+      19,
+      0,
+      21,
+      0,
+      "LATENT"
+    ],
+    [
+      96,
+      13,
+      0,
+      21,
+      1,
+      "VAE"
+    ],
+    [
+      97,
+      20,
+      0,
+      22,
+      0,
+      "IMAGE"
+    ],
+    [
+      98,
+      21,
+      0,
+      22,
+      1,
+      "AUDIO"
+    ],
+    [
+      99,
+      22,
+      0,
+      23,
+      0,
+      "VIDEO"
+    ],
+    [
+      100,
+      211,
+      0,
+      213,
+      2,
+      "IMAGE"
+    ],
+    [
+      101,
+      212,
+      0,
+      213,
+      4,
+      "STRING"
+    ],
+    [
+      102,
+      12,
+      0,
+      213,
+      0,
+      "CLIP"
+    ],
+    [
+      103,
+      11,
+      0,
+      213,
+      1,
+      "VAE"
+    ],
+    [
+      104,
+      200,
+      0,
+      213,
+      5,
+      "INT"
+    ],
+    [
+      105,
+      201,
+      0,
+      213,
+      6,
+      "INT"
+    ],
+    [
+      106,
+      5,
+      0,
+      213,
+      7,
+      "INT"
+    ],
+    [
+      107,
+      213,
+      0,
+      214,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      108,
+      180,
+      0,
+      215,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      109,
+      214,
+      0,
+      215,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      110,
+      215,
+      0,
+      18,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      112,
+      144,
+      0,
+      180,
+      1,
+      "CONDITIONING"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "CANVAS - background image, prompt and global strength",
+      "bounding": [
+        -25,
+        -2070,
+        2190,
+        900
+      ],
+      "color": "#635183",
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "CONCENTRIC MASK - timing, canvas size and profile controls",
+      "bounding": [
+        -25,
+        -1115,
+        1870,
+        1030
+      ],
+      "color": "#476c7a",
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "RED ADDITION - image, prompt and animated mask",
+      "bounding": [
+        -25,
+        -65,
+        2160,
+        825
+      ],
+      "color": "#a44747",
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "GREEN ADDITION - image, prompt and animated mask",
+      "bounding": [
+        -25,
+        785,
+        2160,
+        825
+      ],
+      "color": "#3e8e51",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.45,
+      "offset": [
+        100,
+        2150
+      ]
+    },
+    "frontendVersion": "1.55.18",
+    "VHS_latentpreview": true,
+    "VHS_latentpreviewrate": 12
+  },
+  "version": 0.4
+}
