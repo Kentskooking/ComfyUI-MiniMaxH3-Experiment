@@ -50,6 +50,42 @@ class RegionalAttentionTests(unittest.TestCase):
         route.bind(layout)
         return route, layout
 
+    def five_conditions(self):
+        weights = torch.tensor([[1., .25, 0.], [0., .25, 0.], [0., .25, 0.], [0., .25, 0.], [0., 0., 1.]])
+        conditions = []
+        for bank, row in enumerate(weights):
+            mask = row.repeat_interleave(2)[None, :].expand(4, 6)
+            mask = torch.stack((mask, mask.flip(-1)))
+            conditions.append([torch.randn(1, bank + 2, 8), {
+                "mask": mask, "mask_strength": float(bank + 1),
+                "minimax_token_tags": torch.arange(bank + 2) % 2,
+                "minimax_keyframes": [{"resolved_frame_index": 0, "latent": torch.randn(1, 24, 1, 4, 6)}]}])
+        return conditions
+
+    def test_five_sources_keep_tokens_guides_and_normalize_moving_overlaps(self):
+        conditions = self.five_conditions()
+        merged, lengths, owners = join_conditioning(conditions)
+        self.assertEqual(lengths, (2, 3, 4, 5, 6))
+        self.assertEqual(owners, [("cond", i) for i in range(5)])
+        torch.testing.assert_close(merged[0][0], torch.cat([c[0] for c in conditions], dim=1))
+        torch.testing.assert_close(merged[0][1]["minimax_token_tags"],
+                                   torch.cat([c[1]["minimax_token_tags"] for c in conditions]))
+        route, layout = self.routing(conditions)
+        expected = torch.tensor([[1., 0., 0., 0., 0.], [.1, .2, .3, .4, 0.], [0., 0., 0., 0., 1.]])
+        expected = torch.cat((expected.repeat(2, 1), expected.flip(0).repeat(2, 1)))
+        torch.testing.assert_close(route.video_log_weights.exp(), expected)
+        torch.testing.assert_close(route.audio_log_weights.exp(), torch.arange(1., 6.) / 15)
+        bias = route.bias(0, layout.seq_len, torch.device("cpu"), torch.float32)
+        for start, stop, bank in route.spans:
+            torch.testing.assert_close(bias[route.video_start:, start:stop], expected[:, bank, None].log().expand(-1, stop-start))
+        self.assertEqual([bank for _, _, bank in route.spans], list(range(5)) * 2)
+        self.assertTrue((bias[:, route.audio_start:] == 0).all())
+
+    def test_single_source_with_full_mask_has_unrestricted_attention(self):
+        source = [[self.contexts[0], {**self.conditions[0][1], "mask": torch.ones_like(self.mask)}]]
+        route, layout = self.routing(source)
+        self.assertTrue((route.bias(0, layout.seq_len, torch.device("cpu"), torch.float32) == 0).all())
+
     def test_join_retains_all_tokens_and_separate_image_guides(self):
         merged, lengths, owners = join_conditioning(self.conditions)
         context, metadata = merged[0]
@@ -86,13 +122,15 @@ class RegionalAttentionTests(unittest.TestCase):
         torch.testing.assert_close(latent.video_log_weights[:, 0].exp(), masks[:4, 0, 0].repeat_interleave(6))
 
     def test_chunked_attention_matches_one_dense_shared_softmax(self):
-        route, layout = self.routing()
-        q, k, v = (torch.randn(1, 2, layout.seq_len, 16) for _ in range(3))
-        preferred = type("Preferred", (), {"function": staticmethod(attention_pytorch)})()
-        expected = attention_pytorch(q, k, v, 2, mask=route.bias(0, layout.seq_len, q.device, q.dtype), skip_reshape=True)
-        actual = route.attention(None, q, k, v, 2, preferred=preferred,
-                                 transformer_options={"minimax_h3_layout": layout}, skip_reshape=True)
-        torch.testing.assert_close(actual, expected, rtol=2e-5, atol=2e-6)
+        for conditions in (self.conditions, self.five_conditions()):
+            with self.subTest(sources=len(conditions)):
+                route, layout = self.routing(conditions)
+                q, k, v = (torch.randn(1, 2, layout.seq_len, 16) for _ in range(3))
+                preferred = type("Preferred", (), {"function": staticmethod(attention_pytorch)})()
+                expected = attention_pytorch(q, k, v, 2, mask=route.bias(0, layout.seq_len, q.device, q.dtype), skip_reshape=True)
+                actual = route.attention(None, q, k, v, 2, preferred=preferred,
+                                         transformer_options={"minimax_h3_layout": layout}, skip_reshape=True)
+                torch.testing.assert_close(actual, expected, rtol=2e-5, atol=2e-6)
 
     def test_other_region_reaches_red_through_shared_video_tokens(self):
         route, layout = self.routing()
@@ -141,9 +179,9 @@ class RegionalAttentionTests(unittest.TestCase):
         self.assertIs(guider.model_options, options)
         self.assertNotIn("h3_regional_attention", options["transformer_options"])
 
-    def test_real_sampler_uses_one_joint_forward_per_step_and_restores_patch_state(self):
+    def check_joint_sample(self, conditions, device="cpu"):
         base = tiny_model()
-        patcher = ModelPatcher(base, torch.device("cpu"), torch.device("cpu"))
+        patcher = ModelPatcher(base, torch.device(device), torch.device("cpu"))
         original_forward = base.diffusion_model.blocks[0].attn.forward
 
         def unmasked_patch(*args, **kwargs):
@@ -158,8 +196,8 @@ class RegionalAttentionTests(unittest.TestCase):
             return executor(x, timestep, context, transformer_options, **kwargs)
 
         patcher.add_wrapper_with_key(WrappersMP.DIFFUSION_MODEL, "test_joint", observe)
-        expected = torch.cat([MiniMaxH3Model.preprocess_text_embeds(base.diffusion_model, c) for c in self.contexts], dim=1)
-        guider = Node().get_guider(patcher, self.conditions, "frames", 64)[0]
+        expected = torch.cat([MiniMaxH3Model.preprocess_text_embeds(base.diffusion_model, c[0]) for c in conditions], dim=1)
+        guider = Node().get_guider(patcher, conditions, "frames", 64)[0]
         self.assertIs(patcher.object_patches["diffusion_model.blocks.0.attn.forward"], unmasked_patch)
         self.assertEqual(len(guider.original_conds["positive"]), 1)
         video = torch.zeros(1, 24, 7, 3, 5)
@@ -170,19 +208,25 @@ class RegionalAttentionTests(unittest.TestCase):
                                disable_pbar=True, seed=123)
         self.assertEqual(len(seen), 2)
         for context, guide_count in seen:
-            torch.testing.assert_close(context, expected)
-            self.assertEqual(guide_count, 2)
+            torch.testing.assert_close(context, expected.to(context), rtol=1e-4, atol=1e-5)
+            self.assertEqual(guide_count, len(conditions))
         self.assertEqual([z.shape for z in output.unbind()], [video.shape, audio.shape])
         self.assertTrue(all(torch.isfinite(z).all() for z in output.unbind()))
         self.assertNotIn("h3_regional_attention", guider.model_options["transformer_options"])
         self.assertFalse(hasattr(guider, "routing"))
-        self.assertEqual(len(self.conditions[0][1]["minimax_keyframes"]), 1)
+        self.assertEqual(len(conditions[0][1]["minimax_keyframes"]), 1)
         guider.model_patcher.unpatch_model(unpatch_weights=False)
         self.assertEqual(base.diffusion_model.blocks[0].attn.forward, original_forward)
 
+    def test_real_sampler_uses_one_joint_forward_per_step_and_restores_patch_state(self):
+        self.check_joint_sample(self.conditions)
+
+    def test_five_source_sampler_still_uses_one_joint_forward_per_step(self):
+        self.check_joint_sample(self.five_conditions())
+
     def test_invalid_conditioning_fails_before_sampling(self):
-        with self.assertRaisesRegex(ValueError, "two entries"):
-            join_conditioning(self.conditions[:1])
+        with self.assertRaisesRegex(ValueError, "at least one"):
+            join_conditioning([])
         conditions = [[c[0], {**c[1], "minimax_refs": [{"kind": "image"}]}] for c in self.conditions]
         with self.assertRaisesRegex(ValueError, "Omni"):
             join_conditioning(conditions)

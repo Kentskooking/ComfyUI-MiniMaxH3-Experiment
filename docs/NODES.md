@@ -4,25 +4,28 @@
 
 ## H3 Regional Attention Guider (Beta)
 
-Use two **MiniMax H3 Image to Video** branches, each with **Conditioning Set
+Use **MiniMax H3 Image to Video** branches, each with **Conditioning Set
 Mask**, followed by **Conditioning Combine -> H3 Regional Attention Guider ->
-SamplerCustomAdvanced**. Supply either branch's empty AV latent to the sampler.
+SamplerCustomAdvanced**. Supply one branch's empty AV latent to the sampler.
+Supports two, five, or more sources in the same shared evaluation.
 
-- One joint model evaluation at CFG 1 per sampler evaluation. Both prompts,
+- One joint model evaluation at CFG 1 per sampler evaluation. All prompts,
   Qwen visual tokens and image guides enter the same DiT sequence; no separate
   regional predictions or image-latent averaging.
-- Masks are normalized between A/B at each generated video token. Their log
+- Masks are normalized across sources at each generated video token. Their log
   weights bias attention to the corresponding source tokens. Zero blocks direct
   source access; gray gives weighted access inside the same softmax. Generated
   video/audio tokens can attend globally, including across region boundaries.
 - Each source is refined separately once, then its tokens can read its own
-  source bank and the shared generated tokens. The other source remains
+  source bank and the shared generated tokens. Other sources remain
   reachable through that shared evolving video/audio context.
 - Audio uses global source strengths. Uncovered video still denoises through
-  shared video/audio attention, with neither source directly visible there.
+  shared video/audio attention, with no source directly visible there.
 - `mask_space=frames` uses the existing 1,4,4,4,4 grouping; `latent` uses one mask
   per latent time step. Masks are also averaged over each spatial 2x2 DiT patch.
   Existing Mask Profile controls, including interior gradients, still apply.
+  With multiple colors, connect only each profile's `mask_A` to its own source;
+  overlapping fades normalize together. No background branch is required.
 - `query_chunk` bounds temporary attention-mask memory; it does not divide the
   video into separate contexts. Every chunk reads the full shared key sequence.
 

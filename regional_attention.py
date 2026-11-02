@@ -12,8 +12,8 @@ from .latent_composite import composite_mask
 
 
 def join_conditioning(conditioning):
-    if len(conditioning) != 2:
-        raise ValueError("Regional attention needs two entries: A and B. Use Conditioning Combine after setting their masks.")
+    if not conditioning:
+        raise ValueError("Regional attention needs at least one conditioning entry. Use Conditioning Combine after setting the source masks.")
     lengths = tuple(c[0].shape[1] for c in conditioning)
     tags, keyframes, owners = [], [], []
     common = {}
@@ -45,10 +45,10 @@ def join_conditioning(conditioning):
                 owners.append(("cond", bank))
             if frame.get("audio_latent") is not None:
                 owners.append(("cond_audio", bank))
-    a, b = (c[0] for c in conditioning)
-    common["minimax_token_tags"] = torch.cat((tags[0], tags[1].to(tags[0])))
+    first = conditioning[0][0]
+    common["minimax_token_tags"] = torch.cat([tag.to(tags[0]) for tag in tags])
     common["minimax_keyframes"] = keyframes
-    return [[torch.cat((a, b.to(a)), dim=1), common]], lengths, owners
+    return [[torch.cat([c[0].to(first) for c in conditioning], dim=1), common]], lengths, owners
 
 
 def refine_sources(model, text_states, lengths):
@@ -83,10 +83,13 @@ class RegionalRouting:
     def bind(self, layout):
         if self.spans is not None:
             return
-        a, b = self.lengths
-        self.spans = [(0, a, 0), (a, a + b, 1)]
+        self.spans = []
+        offset = 0
+        for bank, length in enumerate(self.lengths):
+            self.spans.append((offset, offset + length, bank))
+            offset += length
         guides = [(start, stop, kind) for start, stop, kind in layout.segments if kind in ("cond", "cond_audio")]
-        if len(guides) != len(self.owners) or layout.signature[0] != a + b:
+        if len(guides) != len(self.owners) or layout.signature[0] != offset:
             raise ValueError("H3 regional routing does not match the native conditioning layout.")
         for (start, stop, kind), (expected_kind, bank) in zip(guides, self.owners):
             if kind != expected_kind:
@@ -172,7 +175,7 @@ class H3RegionalAttentionGuider:
     def INPUT_TYPES(cls):
         return {"required": {
             "model": ("MODEL",),
-            "conditioning": ("CONDITIONING", {"tooltip": "Two I2V branches: Conditioning Set Mask on each, then Conditioning Combine. Both prompts and both image guides enter one shared model evaluation."}),
+            "conditioning": ("CONDITIONING", {"tooltip": "I2V branches: Conditioning Set Mask on each, then Conditioning Combine. All prompts and image guides enter one shared model evaluation; supports two, five, or more sources."}),
             "mask_space": (["frames", "latent"], {"default": "frames"}),
             "query_chunk": ("INT", {"default": 512, "min": 64, "max": 4096, "step": 64,
                                       "tooltip": "Attention query rows per chunk. All keys remain visible. Smaller uses less temporary mask memory; larger reduces kernel launches."}),
@@ -181,7 +184,7 @@ class H3RegionalAttentionGuider:
     RETURN_TYPES = ("GUIDER",)
     FUNCTION = "get_guider"
     CATEGORY = "MiniMax H3 Experiments/sampling"
-    DESCRIPTION = "Beta: joint regional attention at CFG 1. Routes both source contexts and image guides inside every DiT attention block; generated video/audio attention remains global. Replaces unmasked attention patches on this model clone. No separate regional predictions or latent overlays."
+    DESCRIPTION = "Beta: joint regional attention at CFG 1. Routes all source contexts and image guides inside every DiT attention block; generated video/audio attention remains global. Replaces unmasked attention patches on this model clone. No separate regional predictions or latent overlays."
 
     def get_guider(self, model, conditioning, mask_space="frames", query_chunk=512):
         native = model.get_model_object("diffusion_model")
