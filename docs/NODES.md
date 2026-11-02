@@ -2,6 +2,41 @@
 
 [Installation and examples](../README.md)
 
+## H3 Regional Attention Guider (Beta)
+
+Use two **MiniMax H3 Image to Video** branches, each with **Conditioning Set
+Mask**, followed by **Conditioning Combine -> H3 Regional Attention Guider ->
+SamplerCustomAdvanced**. Supply either branch's empty AV latent to the sampler.
+
+- One joint model evaluation at CFG 1 per sampler evaluation. Both prompts,
+  Qwen visual tokens and image guides enter the same DiT sequence; no separate
+  regional predictions or image-latent averaging.
+- Masks are normalized between A/B at each generated video token. Their log
+  weights bias attention to the corresponding source tokens. Zero blocks direct
+  source access; gray gives weighted access inside the same softmax. Generated
+  video/audio tokens can attend globally, including across region boundaries.
+- Each source is refined separately once, then its tokens can read its own
+  source bank and the shared generated tokens. The other source remains
+  reachable through that shared evolving video/audio context.
+- Audio uses global source strengths. Uncovered video still denoises through
+  shared video/audio attention, with neither source directly visible there.
+- `mask_space=frames` uses the existing 1,4,4,4,4 grouping; `latent` uses one mask
+  per latent time step. Masks are also averaged over each spatial 2x2 DiT patch.
+  Existing Mask Profile controls, including interior gradients, still apply.
+- `query_chunk` bounds temporary attention-mask memory; it does not divide the
+  video into separate contexts. Every chunk reads the full shared key sequence.
+
+The cloned model uses native H3 QKV/norm/RoPE and ComfyUI's mask-capable attention
+dispatch. It replaces unmasked attention-forward patches, including KJ's H3
+memory-efficient Sage patch. The backend may fall back to PyTorch attention;
+one joint forward is not a guarantee of faster sampling. LoRA and preview
+patches remain in place. This beta supports I2V/FLF and text-only branches,
+not Omni references or independently scheduled/control-hook conditionings.
+
+Verified with routing tests and a tiny native H3 sampler on CPU/4090; full-model
+visual quality is unverified. Restart ComfyUI after active jobs finish and
+refresh the browser to load the new node.
+
 ## H3 Virtual Head Start
 
 Connect `Conditioning Combine -> H3 Virtual Head Start -> H3 Masked Conditioning
