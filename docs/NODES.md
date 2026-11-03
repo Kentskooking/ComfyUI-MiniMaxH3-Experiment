@@ -40,6 +40,32 @@ Verified with routing tests and a tiny native H3 sampler on CPU/4090; full-model
 visual quality is unverified. Restart ComfyUI after active jobs finish and
 refresh the browser to load the new node.
 
+## H3 Regional Interaction Guider (Beta)
+
+A separate node with the same wiring as Regional Attention Guider, plus a
+native `interaction` slider. Existing guider nodes and saved workflows keep
+their behavior.
+
+- **1:** exactly the original regional attention routing (default).
+- **Lower values:** reduce attention between different mask memberships while
+  keeping matching memberships connected across space and time. Try 0.5, then
+  0.25 and 0.75 with the same seed.
+- **0:** blocks direct attention between disjoint regions. Soft-mask overlaps
+  can still bridge them; this is not the old prediction-blending algorithm.
+
+All sources still denoise together in one model evaluation. After the existing
+mask conversion, video-to-video attention uses cosine similarity of normalized
+source memberships, weighted as `interaction + (1-interaction)*similarity`.
+Source tokens use the same rule to read generated video. Uncovered positions
+form their own group. Generated audio still reads the whole scene, but its
+readback into video/source tokens is multiplied by `interaction` so it cannot
+bypass the zero endpoint. Lower settings may also change audio/video coupling.
+
+This follows mask membership, not tracked object identity; harder separation
+may bring visible boundaries back. Query-chunk memory remains bounded, with
+extra attention-bias computation below 1. No full-model quality guarantee.
+Restart ComfyUI after active jobs finish, then refresh to load the new node.
+
 ## H3 Virtual Head Start
 
 Connect `Conditioning Combine -> H3 Virtual Head Start -> H3 Masked Conditioning
