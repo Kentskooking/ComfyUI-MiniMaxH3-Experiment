@@ -15,8 +15,8 @@ from .regional_attention import (
 
 
 class InteractionRouting(RegionalRouting):
-    def __init__(self, sources, lengths, owners, video_shape, device, mask_space, query_chunk, interaction):
-        super().__init__(sources, lengths, owners, video_shape, device, mask_space, query_chunk)
+    def __init__(self, sources, lengths, owners, video_shape, device, mask_space, query_chunk, interaction, mask_cache_mb=0):
+        super().__init__(sources, lengths, owners, video_shape, device, mask_space, query_chunk, mask_cache_mb)
         self.interaction = interaction
         if interaction < 1:
             weights = self.video_log_weights.exp()
@@ -51,7 +51,7 @@ class H3InteractionGuider(H3RegionalGuider):
         if latent_shapes is None or len(latent_shapes) != 2 or len(latent_shapes[0]) != 5 or latent_shapes[0][1] != 24:
             raise ValueError("H3 Regional Interaction Guider needs joint H3 video/audio latents.")
         routing = InteractionRouting(self.sources, self.lengths, self.owners, latent_shapes[0], device,
-                                     self.mask_space, self.query_chunk, self.interaction)
+                                     self.mask_space, self.query_chunk, self.interaction, self.mask_cache_mb)
         original_options = self.model_options
         self.model_options = comfy.model_patcher.create_model_options_clone(original_options)
         self.model_options.setdefault("transformer_options", {})["h3_regional_attention"] = routing
@@ -61,6 +61,7 @@ class H3InteractionGuider(H3RegionalGuider):
                 latent_shapes=latent_shapes)
         finally:
             self.model_options = original_options
+            routing.clear_cache()
 
 
 class H3RegionalInteractionGuider(H3RegionalAttentionGuider):
@@ -75,7 +76,7 @@ class H3RegionalInteractionGuider(H3RegionalAttentionGuider):
 
     DESCRIPTION = "Separate beta: one shared H3 denoise with adjustable interaction between mask regions. 1 matches H3 Regional Attention Guider; lower values preserve stronger regional separation. Animated masks still apply at each latent time position. Existing guiders are unchanged."
 
-    def get_guider(self, model, conditioning, mask_space="frames", query_chunk=512, interaction=1.0):
+    def get_guider(self, model, conditioning, mask_space="frames", query_chunk=512, interaction=1.0, mask_cache_mb=256):
         if not 0 <= interaction <= 1:
             raise ValueError("interaction must be between 0 and 1 for valid attention weights.")
         native = model.get_model_object("diffusion_model")
@@ -87,7 +88,7 @@ class H3RegionalInteractionGuider(H3RegionalAttentionGuider):
         for i, block in enumerate(native.blocks):
             patched.add_object_patch(f"diffusion_model.blocks.{i}.attn.forward", partial(regional_forward, block.attn))
         guider = H3InteractionGuider(patched)
-        guider.set_regions(conditioning, lengths, owners, mask_space, query_chunk)
+        guider.set_regions(conditioning, lengths, owners, mask_space, query_chunk, mask_cache_mb)
         guider.interaction = interaction
         guider.inner_set_conds({"positive": joined})
         return (guider,)

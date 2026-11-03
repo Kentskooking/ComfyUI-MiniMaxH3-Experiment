@@ -18,6 +18,7 @@ from comfy.patcher_extension import WrappersMP
 from comfy_extras.nodes_custom_sampler import Noise_RandomNoise
 from comfy_extras.nodes_minimax_h3 import video_latent_t
 from h3_guider_test import continuation as c
+from h3_guider_test.regional_interaction import InteractionRouting
 
 GuiderNode = harness.pack.NODE_CLASS_MAPPINGS["H3ExperimentsRegionalInteractionGuider"]
 
@@ -108,6 +109,48 @@ class ContinuationTests(unittest.TestCase):
                          regional_tests.MiniMaxH3Model.preprocess_text_embeds)
         self.assertIn("Model preparations 1", report)
         self.assertIn("text refinements 1", report)
+
+    def test_mask_cache_preserves_output_and_rebuilds_for_each_moving_mask_cycle(self):
+        mask = ((torch.arange(90) // 17) % 2).float()[:, None, None].expand(-1, 4, 6)
+        self.guider.sources = [{**source, "mask": m} for source, m in zip(self.guider.sources, (mask, 1 - mask))]
+        self.guider.mask_cache_mb = 0
+        expected, _, _ = self.run_cycles(3)
+        self.guider.mask_cache_mb = 256
+        routes, weights, counts = [], [], []
+        clear = InteractionRouting.clear_cache
+
+        def record(route):
+            routes.append(route)
+            weights.append(route.video_log_weights.clone())
+            counts.append((len(route.bias_cache), route.cache_hits))
+            clear(route)
+
+        with patch.object(InteractionRouting, "clear_cache", record):
+            actual, _, _ = self.run_cycles(3)
+        for a, b in zip(actual["samples"].tensors, expected["samples"].tensors):
+            torch.testing.assert_close(a, b, rtol=0, atol=0)
+        self.assertEqual(len({id(route) for route in routes}), 3)
+        self.assertTrue(all(chunks > 0 and hits == 3 * chunks for chunks, hits in counts))
+        self.assertTrue(all(not route.bias_cache and route.cache_bytes == 0 for route in routes))
+        self.assertFalse(torch.equal(weights[0], weights[1]))
+
+    def test_sampling_error_releases_populated_mask_cache(self):
+        routes = []
+
+        def interrupt(executor, *args, **kwargs):
+            route = args[3]["h3_regional_attention"]
+            if routes:
+                self.assertGreater(route.cache_bytes, 0)
+                raise RuntimeError("mask cache interruption")
+            routes.append(route)
+            return executor(*args, **kwargs)
+
+        self.guider.model_patcher.add_wrapper_with_key(WrappersMP.DIFFUSION_MODEL, "test_mask_cache_failure", interrupt)
+        with self.assertRaisesRegex(RuntimeError, "mask cache interruption"):
+            self.run_cycles(3)
+        self.assertEqual(routes[0].bias_cache, {})
+        self.assertEqual(routes[0].cache_bytes, 0)
+        self.assertNotIn("h3_regional_attention", self.guider.model_options["transformer_options"])
 
     def test_inference_failure_releases_cache_and_original_guider_still_runs(self):
         calls, sessions = [], []

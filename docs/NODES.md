@@ -28,6 +28,12 @@ Supports two, five, or more sources in the same shared evaluation.
   overlapping fades normalize together. No background branch is required.
 - `query_chunk` bounds temporary attention-mask memory; it does not divide the
   video into separate contexts. Every chunk reads the full shared key sequence.
+- `mask_cache_mb` reuses unchanged attention-bias chunks across blocks/steps
+  within each cycle. Default 256 MiB; 0 disables it for timing comparisons.
+  The cache also stays below a quarter of free memory above ComfyUI's inference
+  reserve. Chunks beyond the budget are recomputed normally. It clears after
+  each cycle or error; moving masks update next cycle. Model attention results
+  are never cached, and `query_chunk`/interaction math are unchanged.
 
 The cloned model uses native H3 QKV/norm/RoPE and ComfyUI's mask-capable attention
 dispatch. It replaces unmasked attention-forward patches, including KJ's H3
@@ -62,8 +68,8 @@ readback into video/source tokens is multiplied by `interaction` so it cannot
 bypass the zero endpoint. Lower settings may also change audio/video coupling.
 
 This follows mask membership, not tracked object identity; harder separation
-may bring visible boundaries back. Query-chunk memory remains bounded, with
-extra attention-bias computation below 1. No full-model quality guarantee.
+may bring visible boundaries back. The same bounded `mask_cache_mb` reuse covers
+the interaction-bias calculations. No full-model quality guarantee.
 Restart ComfyUI after active jobs finish, then refresh to load the new node.
 
 ## H3 Continuation Sampler (Beta)

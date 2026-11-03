@@ -1,9 +1,12 @@
 from functools import partial
+import logging
 
 import torch
 import torch.nn.functional as F
 
+import comfy.model_management
 import comfy.model_patcher
+import comfy.model_prefetch
 import comfy.samplers
 from comfy.ldm.minimax.model import Attention, MiniMaxH3Model
 from comfy.ldm.modules.attention import AttentionTensorContainer, optimized_attention
@@ -58,9 +61,9 @@ def refine_sources(model, text_states, lengths):
 
 
 class RegionalRouting:
-    """Small, sampling-scoped routing weights; never retains a full attention matrix."""
+    """Sampling-scoped routing weights and a bounded cache of attention-bias chunks."""
 
-    def __init__(self, sources, lengths, owners, video_shape, device, mask_space, query_chunk):
+    def __init__(self, sources, lengths, owners, video_shape, device, mask_space, query_chunk, mask_cache_mb=0):
         video = torch.empty((), device=device).expand(video_shape)
         weights, strengths = [], []
         for metadata in sources:
@@ -79,6 +82,13 @@ class RegionalRouting:
         self.owners = owners
         self.query_chunk = query_chunk
         self.spans = None
+        self.bias_cache = {}
+        self.cache_bytes = 0
+        self.cache_hits = 0
+        self.cache_limit = max(0, int(mask_cache_mb)) * 1024 * 1024
+        if self.cache_limit:
+            spare = max(0, comfy.model_management.get_free_memory(device) - comfy.model_management.minimum_inference_memory())
+            self.cache_limit = min(self.cache_limit, int(spare // 4))
 
     def bind(self, layout):
         if self.spans is not None:
@@ -119,6 +129,29 @@ class RegionalRouting:
         # All generated video/audio key columns stay open, including across mask boundaries.
         return bias
 
+    def cached_bias(self, start, stop, device, dtype):
+        key = (start, stop, device, dtype)
+        if key in self.bias_cache:
+            self.cache_hits += 1
+            return self.bias_cache[key]
+        size = (stop - start) * self.seq_len * comfy.model_management.dtype_size(dtype)
+        if self.cache_bytes + size <= self.cache_limit:
+            # These allocations outlive a forward; exclude them from the transient memory compiler.
+            with comfy.model_prefetch.pause_malloc_graph():
+                bias = self.bias(start, stop, device, dtype)
+            self.bias_cache[key] = bias
+            self.cache_bytes += size
+            return bias
+        return self.bias(start, stop, device, dtype)
+
+    def clear_cache(self):
+        if self.bias_cache:
+            logging.info("[H3 regional] Mask cache: %.1f MiB, %d chunks, %d reuses.",
+                         self.cache_bytes / (1024 * 1024), len(self.bias_cache), self.cache_hits)
+        self.bias_cache.clear()
+        self.cache_bytes = 0
+        self.cache_hits = 0
+
     def attention(self, original, q, k, v, heads, *, preferred, transformer_options, **kwargs):
         self.bind(transformer_options["minimax_h3_layout"])
         options = transformer_options.copy()
@@ -130,7 +163,7 @@ class RegionalRouting:
             stop = min(start + self.query_chunk, self.seq_len)
             result = optimized_attention(
                 AttentionTensorContainer(q[:, :, start:stop]), AttentionTensorContainer(k), AttentionTensorContainer(v),
-                heads, mask=self.bias(start, stop, q.device, q.dtype), preferred_attention=preferred,
+                heads, mask=self.cached_bias(start, stop, q.device, q.dtype), preferred_attention=preferred,
                 transformer_options=options, **kwargs)
             if output is None:
                 output = result.new_empty((result.shape[0], self.seq_len, result.shape[-1]))
@@ -148,18 +181,19 @@ def regional_forward(attention, x, rope_freqs=None, transformer_options={}):
 
 
 class H3RegionalGuider(comfy.samplers.CFGGuider):
-    def set_regions(self, conditioning, lengths, owners, mask_space, query_chunk):
+    def set_regions(self, conditioning, lengths, owners, mask_space, query_chunk, mask_cache_mb=256):
         self.sources = [c[1] for c in conditioning]
         self.lengths = lengths
         self.owners = owners
         self.mask_space = mask_space
         self.query_chunk = query_chunk
+        self.mask_cache_mb = mask_cache_mb
 
     def inner_sample(self, noise, latent_image, device, sampler, sigmas, denoise_mask, callback, disable_pbar, seed, latent_shapes=None):
         if latent_shapes is None or len(latent_shapes) != 2 or len(latent_shapes[0]) != 5 or latent_shapes[0][1] != 24:
             raise ValueError("H3 Regional Attention Guider needs joint H3 video/audio latents.")
         routing = RegionalRouting(self.sources, self.lengths, self.owners, latent_shapes[0], device,
-                                  self.mask_space, self.query_chunk)
+                                  self.mask_space, self.query_chunk, self.mask_cache_mb)
         original_options = self.model_options
         self.model_options = comfy.model_patcher.create_model_options_clone(original_options)
         self.model_options.setdefault("transformer_options", {})["h3_regional_attention"] = routing
@@ -168,6 +202,7 @@ class H3RegionalGuider(comfy.samplers.CFGGuider):
                                         latent_shapes=latent_shapes)
         finally:
             self.model_options = original_options
+            routing.clear_cache()
 
 
 class H3RegionalAttentionGuider:
@@ -179,6 +214,9 @@ class H3RegionalAttentionGuider:
             "mask_space": (["frames", "latent"], {"default": "frames"}),
             "query_chunk": ("INT", {"default": 512, "min": 64, "max": 4096, "step": 64,
                                       "tooltip": "Attention query rows per chunk. All keys remain visible. Smaller uses less temporary mask memory; larger reduces kernel launches."}),
+        }, "optional": {
+            "mask_cache_mb": ("INT", {"default": 256, "min": 0, "max": 2048, "step": 64,
+                                      "tooltip": "Maximum MiB for reusing regional attention masks within one sampling cycle. 0 disables reuse. Automatically limited to a quarter of free memory above ComfyUI's inference reserve; released after each cycle. Does not cache model attention results."}),
         }}
 
     RETURN_TYPES = ("GUIDER",)
@@ -186,7 +224,7 @@ class H3RegionalAttentionGuider:
     CATEGORY = "MiniMax H3 Experiments/sampling"
     DESCRIPTION = "Beta: joint regional attention at CFG 1. Routes all source contexts and image guides inside every DiT attention block; generated video/audio attention remains global. Replaces unmasked attention patches on this model clone. No separate regional predictions or latent overlays."
 
-    def get_guider(self, model, conditioning, mask_space="frames", query_chunk=512):
+    def get_guider(self, model, conditioning, mask_space="frames", query_chunk=512, mask_cache_mb=256):
         native = model.get_model_object("diffusion_model")
         if not isinstance(native, MiniMaxH3Model):
             raise ValueError("H3 Regional Attention Guider requires the native ComfyUI MiniMax H3 model.")
@@ -196,6 +234,6 @@ class H3RegionalAttentionGuider:
         for i, block in enumerate(native.blocks):
             patched.add_object_patch(f"diffusion_model.blocks.{i}.attn.forward", partial(regional_forward, block.attn))
         guider = H3RegionalGuider(patched)
-        guider.set_regions(conditioning, lengths, owners, mask_space, query_chunk)
+        guider.set_regions(conditioning, lengths, owners, mask_space, query_chunk, mask_cache_mb)
         guider.inner_set_conds({"positive": joined})
         return (guider,)
