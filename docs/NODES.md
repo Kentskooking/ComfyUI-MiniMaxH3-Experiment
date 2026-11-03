@@ -66,6 +66,42 @@ may bring visible boundaries back. Query-chunk memory remains bounded, with
 extra attention-bias computation below 1. No full-model quality guarantee.
 Restart ComfyUI after active jobs finish, then refresh to load the new node.
 
+## H3 Continuation Sampler (Beta)
+
+Replace `SamplerCustomAdvanced` after either regional guider. Connect
+`full_sequence` to the existing video/audio decoders. Old nodes are unchanged.
+
+- `cycles` counts the initial generation too. Each later cycle protects the
+  previous AV latent tail and generates a new suffix. No VAE decode, MP4 save,
+  or explicit model unload is requested by the sampler; normal VRAM offloading still applies.
+  Bypass separate preview patches to prevent them from decoding during sampling.
+- The regular length control sets each window. `context_frames` accepts
+  39, 90, 141, ... and snaps down to fit. Final frames are
+  `window + (cycles-1)*(window-context)`. Example: 209 / 39 / 2 gives 379 frames.
+- Both regions stay in the same joint denoise. Original prompts/images remain
+  connected; generated positions advance while original image anchors stay put.
+- Masks follow the full timeline: `loop` repeats, `hold` keeps the last frame.
+  Short sequences first hold to fill the initial window, matching existing routing.
+- Seed is the supplied noise seed plus the zero-based cycle index. The sampler
+  reports step progress; final decoding happens downstream.
+- With `save_checkpoints`, each completed cycle writes its cumulative raw AV
+  tensors and workflow metadata to a unique safetensors file under
+  `output/h3_continuation`. Disk/RAM use grows with sequence length.
+
+To resume, add **H3 Load Continuation State (Beta)**, paste the explicit checkpoint
+path from the report/log, and connect `resume_state`. Set `cycles` to the desired
+**total**, keeping the model, conditioning, seed, window, masks and context settings
+unchanged. A completed count at or above `cycles` only returns the saved sequence.
+The checkpoint contains latents, not model weights or encoded conditioning.
+
+Requires native joint H3 AV latents and a schedule ending at zero. One cycle
+matches the normal sampler. Continuation needs at least 56 window frames.
+This is protected-prefix continuation, not replay of every previous denoising step.
+The small-model tests verify carryover, joint attention, save/resume and clock
+alignment. Full-model motion/audio seam quality needs a render test; decoding
+the combined sequence may also change pixels near joins despite unchanged latents.
+Restart after active jobs finish to load these separate beta nodes.
+
 ## H3 Virtual Head Start
 
 Connect `Conditioning Combine -> H3 Virtual Head Start -> H3 Masked Conditioning
