@@ -2,7 +2,9 @@ import copy
 from functools import partial
 import json
 import logging
+import math
 from pathlib import Path
+from time import perf_counter
 import uuid
 
 import torch
@@ -66,6 +68,82 @@ def offset_positions(executor, x, timestep, context, transformer_options, minima
             shifted.position_ids[start:stop, 0] += audio_tick(start_frame)
     return executor(x, timestep, context, transformer_options.copy(),
                     minimax_payload={**minimax_payload, "layout": shifted}, **kwargs)
+
+
+class ContinuationPreparation:
+    """Reuse fixed preparation only within one continuation execution."""
+
+    def __init__(self, patcher, video, audio, window):
+        self.patcher = patcher
+        self.packed_size = video.numel() + math.prod(audio.shape[:-1]) * math.ceil(window * 40 / FPS)
+        self.models = []
+        self.loaded_sizes = []
+        self.patches_uuid = patcher.patches_uuid
+        self.refined = None
+        self.prepare_calls = 0
+        self.refine_calls = 0
+        self.prepare_seconds = 0.0
+        self.refine_seconds = 0.0
+        self.refine = patcher.get_model_object("diffusion_model.preprocess_text_embeds")
+        # Extra models may have their own loading/cleanup or device-specific text state.
+        self.enabled = not patcher.additional_models
+
+    def __enter__(self):
+        if self.enabled:
+            self.patcher.add_wrapper_with_key(WrappersMP.PREPARE_SAMPLING, "h3_continuation_prepare", self.prepare)
+            self.patcher.add_object_patch("diffusion_model.preprocess_text_embeds", self.refine_once)
+        return self
+
+    def prepare(self, executor, model, noise_shape, conds, model_options=None, force_full_load=False, force_offload=False):
+        resident = comfy.model_management.loaded_models()
+        if self.patches_uuid != model.patches_uuid:
+            self.refined = None
+        reusable = self.models and self.patches_uuid == model.patches_uuid and all(p in resident for p in self.models)
+        reusable = reusable and all(p.is_dynamic() or p.loaded_size() >= size
+                                    for p, size in zip(self.models, self.loaded_sizes))
+        if reusable and noise_shape[-1] <= self.packed_size and not force_full_load and not force_offload:
+            return model.model, conds, self.models[1:]
+        # The 40 Hz audio clock can alternate between adjacent lengths. Reserve the larger window.
+        self.packed_size = max(self.packed_size, noise_shape[-1])
+        shape = (*noise_shape[:-1], self.packed_size)
+        started = perf_counter()
+        self.prepare_calls += 1
+        try:
+            real_model, conds, additional = executor(model, shape, conds, model_options=model_options,
+                force_full_load=force_full_load, force_offload=force_offload)
+        finally:
+            self.prepare_seconds += perf_counter() - started
+        if additional:
+            self.enabled = False
+            self.refined = None
+        self.models = [model] if self.enabled else []
+        self.loaded_sizes = [p.loaded_size() for p in self.models]
+        self.patches_uuid = model.patches_uuid
+        return real_model, conds, additional
+
+    def refine_once(self, text_states):
+        if not self.enabled:
+            return self.refine(text_states)
+        if self.refined is None:
+            started = perf_counter()
+            self.refine_calls += 1
+            try:
+                self.refined = self.refine(text_states)
+            finally:
+                self.refine_seconds += perf_counter() - started
+        return self.refined
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            if self.prepare_calls:
+                self.patcher.unpatch_model(unpatch_weights=False)
+        finally:
+            self.patcher.remove_wrappers_with_key(WrappersMP.PREPARE_SAMPLING, "h3_continuation_prepare")
+            self.patcher.remove_wrappers_with_key(WrappersMP.DIFFUSION_MODEL, "h3_continuation_clock")
+            self.patcher.add_object_patch("diffusion_model.preprocess_text_embeds", self.refine)
+            self.refined = None
+            self.models.clear()
+            self.loaded_sizes.clear()
 
 
 def resize_source_masks(sources, video, window, mask_space):
@@ -255,38 +333,55 @@ class H3ContinuationSampler:
                   "Direct AV carry; sampler requests no decode or explicit model unload. External preview patches still apply. Resume uses connected model/conditioning."]
         steps = sigmas.numel() - 1
         progress = comfy.utils.ProgressBar(max(0, cycles - completed) * steps)
-        for index in range(completed, cycles):
-            comfy.model_management.throw_exception_if_processing_interrupted()
-            start = state["frames"] - context if state else 0
-            target = carry_prefix(latent_image, state["latent"], start, window, context) if state else latent_image
-            current_guider = copy.copy(guider)
-            current_guider.model_patcher = guider.model_patcher.clone()
-            current_guider.model_patcher.model_options = comfy.model_patcher.create_model_options_clone(guider.model_options)
-            current_guider.model_options = current_guider.model_patcher.model_options
-            if start:
-                current_guider.sources = window_sources(sources, start, window, guider.mask_space, mask_playback)
-                current_guider.model_patcher.add_wrapper_with_key(WrappersMP.DIFFUSION_MODEL, "h3_continuation_clock",
-                    partial(offset_positions, start_frame=start))
-            current_noise = copy.copy(noise)
-            current_noise.seed = (noise.seed + index) % (2**64)
+        current_guider = copy.copy(guider)
+        current_guider.model_patcher = guider.model_patcher.clone()
+        current_guider.model_patcher.model_options = comfy.model_patcher.create_model_options_clone(guider.model_options)
+        current_guider.model_options = current_guider.model_patcher.model_options
+        with ContinuationPreparation(current_guider.model_patcher, video, audio, window) as preparation:
+            for index in range(completed, cycles):
+                comfy.model_management.throw_exception_if_processing_interrupted()
+                started = perf_counter()
+                start = state["frames"] - context if state else 0
+                target = carry_prefix(latent_image, state["latent"], start, window, context) if state else latent_image
+                if start:
+                    current_guider.sources = window_sources(sources, start, window, guider.mask_space, mask_playback)
+                    current_guider.model_patcher.remove_wrappers_with_key(WrappersMP.DIFFUSION_MODEL, "h3_continuation_clock")
+                    current_guider.model_patcher.add_wrapper_with_key(WrappersMP.DIFFUSION_MODEL, "h3_continuation_clock",
+                        partial(offset_positions, start_frame=start))
+                current_noise = copy.copy(noise)
+                current_noise.seed = (noise.seed + index) % (2**64)
 
-            def callback(step, x0, x, total_steps):
-                progress.update_absolute((index - completed) * steps + step + 1)
+                def callback(step, x0, x, total_steps):
+                    progress.update_absolute((index - completed) * steps + step + 1)
 
-            samples = current_guider.sample(current_noise.generate_noise(target), target["samples"], sampler, sigmas,
-                denoise_mask=target.get("noise_mask"), callback=callback, disable_pbar=True, seed=current_noise.seed)
-            result = {"samples": samples.to(comfy.model_management.intermediate_device())}
-            errors = ""
-            if state:
-                result, video_error, audio_error = append_future(state["latent"], result, context)
-                errors = f"; preserved-prefix max error video={video_error:.3g}, audio={audio_error:.3g}"
-            state = {"latent": result, "frames": start + window, "completed_cycles": index + 1,
-                     "window_frames": window, "context_frames": context, "mask_playback": mask_playback,
-                     "last_seed": current_noise.seed}
-            validate_state(state)
-            line = f"Cycle {index + 1}: window starts at frame {start}; total {state['frames']} frames / {state['frames']/FPS:.3f}s{errors}"
-            if save_checkpoints:
-                line += "\n" + save_state(state, checkpoint_prefix, prompt, extra_pnginfo)
+                sample_started = perf_counter()
+                samples = current_guider.sample(current_noise.generate_noise(target), target["samples"], sampler, sigmas,
+                    denoise_mask=target.get("noise_mask"), callback=callback, disable_pbar=True, seed=current_noise.seed)
+                result = {"samples": samples.to(comfy.model_management.intermediate_device())}
+                sample_finished = perf_counter()
+                errors = ""
+                if state:
+                    result, video_error, audio_error = append_future(state["latent"], result, context)
+                    errors = f"; preserved-prefix max error video={video_error:.3g}, audio={audio_error:.3g}"
+                state = {"latent": result, "frames": start + window, "completed_cycles": index + 1,
+                         "window_frames": window, "context_frames": context, "mask_playback": mask_playback,
+                         "last_seed": current_noise.seed}
+                validate_state(state)
+                save_started = perf_counter()
+                checkpoint = save_state(state, checkpoint_prefix, prompt, extra_pnginfo) if save_checkpoints else None
+                saved = perf_counter() - save_started
+                carry = (sample_started - started) + (save_started - sample_finished)
+                line = (f"Cycle {index + 1}: window starts at frame {start}; total {state['frames']} frames / {state['frames']/FPS:.3f}s{errors}"
+                        f"; sampling {sample_finished - sample_started:.3f}s, carry/merge {carry:.3f}s, checkpoint {saved:.3f}s")
+                if checkpoint:
+                    line += "\n" + checkpoint
+                report.append(line)
+                logging.info("[H3 continuation] %s", line)
+            if preparation.enabled:
+                line = (f"Model preparations {preparation.prepare_calls} ({preparation.prepare_seconds:.3f}s host); "
+                        f"text refinements {preparation.refine_calls} ({preparation.refine_seconds:.3f}s host).")
+            else:
+                line = "Additional models attached: normal per-cycle preparation retained."
             report.append(line)
             logging.info("[H3 continuation] %s", line)
         return (state["latent"], state, "\n".join(report))

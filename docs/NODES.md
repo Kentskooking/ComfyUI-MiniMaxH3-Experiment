@@ -84,9 +84,15 @@ Replace `SamplerCustomAdvanced` after either regional guider. Connect
   Short sequences first hold to fill the initial window, matching existing routing.
 - Seed is the supplied noise seed plus the zero-based cycle index. The sampler
   reports step progress; final decoding happens downstream.
+- One execution reuses its model wrapper, resident-model preparation and fixed
+  source text refinement. Moving masks, noise, AV layout and time offsets still
+  update each cycle. Evicted models or changed weight patches trigger preparation
+  again; extra models retain the normal path. Temporary cached tensors clear on exit/error.
+- The report includes sampling, carry/merge and checkpoint times per cycle,
+  plus preparation/refinement counts. Their host timings are not GPU profiling.
 - With `save_checkpoints`, each completed cycle writes its cumulative raw AV
   tensors and workflow metadata to a unique safetensors file under
-  `output/h3_continuation`. Disk/RAM use grows with sequence length.
+  `output/h3_continuation`. Saving remains synchronous. Disk/RAM use grows with sequence length.
 
 To resume, add **H3 Load Continuation State (Beta)**, paste the explicit checkpoint
 path from the report/log, and connect `resume_state`. Set `cycles` to the desired

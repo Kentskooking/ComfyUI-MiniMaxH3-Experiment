@@ -1,6 +1,7 @@
 import copy
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -10,6 +11,7 @@ import torch
 
 import comfy.nested_tensor
 import comfy.samplers
+import comfy.sampler_helpers
 from comfy.ldm.minimax.model import PackedLayout
 from comfy.model_patcher import ModelPatcher
 from comfy.patcher_extension import WrappersMP
@@ -83,6 +85,93 @@ class ContinuationTests(unittest.TestCase):
         self.assertIs(self.guider.model_options, original_options)
         self.assertEqual(self.noise.seed, 246)
         self.assertEqual(self.fixture.conditions[0][1]["minimax_keyframes"][0]["resolved_frame_index"], 0)
+
+    def test_fixed_preparation_runs_once_and_execution_cache_is_released(self):
+        sessions = []
+        enter = c.ContinuationPreparation.__enter__
+
+        def record(session):
+            sessions.append(session)
+            return enter(session)
+
+        with patch.object(c.ContinuationPreparation, "__enter__", record), patch.object(
+                comfy.sampler_helpers, "_prepare_sampling", wraps=comfy.sampler_helpers._prepare_sampling) as prepare:
+            _, _, report = self.run_cycles(3)
+        self.assertEqual(prepare.call_count, 1)
+        self.assertEqual(prepare.call_args.args[1][-1], 24 * 17 * 4 * 6 + 32 * 2 * 94)
+        session = sessions[0]
+        self.assertEqual(session.refine_calls, 1)
+        self.assertIsNone(session.refined)
+        self.assertEqual(session.models, [])
+        self.assertNotIn("h3_continuation_prepare", session.patcher.wrappers.get(WrappersMP.PREPARE_SAMPLING, {}))
+        self.assertEqual(self.base.diffusion_model.preprocess_text_embeds.__func__,
+                         regional_tests.MiniMaxH3Model.preprocess_text_embeds)
+        self.assertIn("Model preparations 1", report)
+        self.assertIn("text refinements 1", report)
+
+    def test_inference_failure_releases_cache_and_original_guider_still_runs(self):
+        calls, sessions = [], []
+        enter = c.ContinuationPreparation.__enter__
+
+        def record(session):
+            sessions.append(session)
+            return enter(session)
+
+        def fail(executor, *args, **kwargs):
+            calls.append(1)
+            if len(calls) == 3:
+                raise RuntimeError("inference interruption")
+            return executor(*args, **kwargs)
+
+        self.guider.model_patcher.add_wrapper_with_key(WrappersMP.DIFFUSION_MODEL, "test_failure", fail)
+        with patch.object(c.ContinuationPreparation, "__enter__", record):
+            with self.assertRaisesRegex(RuntimeError, "inference interruption"):
+                self.run_cycles(3)
+        self.assertIsNone(sessions[0].refined)
+        self.assertEqual(sessions[0].models, [])
+        self.assertIsNone(self.base.current_patcher)
+        latent = self.latent()
+        output = self.guider.sample(self.noise.generate_noise(latent), latent["samples"], self.sampler,
+                                   self.sigmas, disable_pbar=True, seed=self.noise.seed)
+        self.assertTrue(all(torch.isfinite(x).all() for x in output.tensors))
+
+    def test_preparation_rechecks_eviction_and_reserves_audio_rounding(self):
+        latent = self.latent()
+        session = c.ContinuationPreparation(self.guider.model_patcher, *latent["samples"].tensors, 56)
+        size = [100]
+        model = SimpleNamespace(model=object(), is_dynamic=lambda: False, loaded_size=lambda: size[0],
+                                patches_uuid=session.patches_uuid)
+        calls = []
+
+        def prepare(model, shape, conds, **kwargs):
+            calls.append(shape)
+            return model.model, conds, []
+
+        with patch.object(comfy.model_management, "loaded_models", return_value=[model]) as loaded:
+            for _ in range(2):
+                session.prepare(prepare, model, (1, 1, 100), {})
+            self.assertEqual(len(calls), 1)
+            loaded.return_value = []
+            session.prepare(prepare, model, (1, 1, 100), {})
+            self.assertEqual(len(calls), 2)
+            loaded.return_value = [model]
+            size[0] = 50
+            session.prepare(prepare, model, (1, 1, 100), {})
+            self.assertEqual(len(calls), 3)
+            model.patches_uuid = 'new weight patches'
+            session.refined = torch.ones(1)
+            session.prepare(prepare, model, (1, 1, 100), {})
+            self.assertEqual(len(calls), 4)
+            self.assertIsNone(session.refined)
+
+    def test_extra_models_keep_native_preparation(self):
+        # Attached-model loading and cleanup remain owned by the native sampler.
+        patcher = self.guider.model_patcher.clone()
+        patcher.additional_models["test_attachment"] = []
+        session = c.ContinuationPreparation(patcher, *self.latent()["samples"].tensors, 56)
+        with session:
+            self.assertFalse(session.enabled)
+            self.assertNotIn("h3_continuation_prepare", patcher.wrappers.get(WrappersMP.PREPARE_SAMPLING, {}))
 
     def test_disk_roundtrip_resume_matches_uninterrupted_native_run(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(c.folder_paths, "get_output_directory", return_value=directory):
