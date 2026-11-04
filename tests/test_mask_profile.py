@@ -5,7 +5,7 @@ import unittest
 import torch
 from torchvision.transforms.v2 import functional as TF
 
-spec = importlib.util.spec_from_file_location("h3_mask_profile_test", Path(__file__).resolve().parents[1] / "mask_profile.py")
+spec = importlib.util.spec_from_file_location("h3_mask_profile_test", Path(__file__).resolve().parents[1] / "masks" / "mask_profile.py")
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 Profile = module.H3MaskProfile

@@ -11,7 +11,7 @@ import comfy.samplers
 from comfy.ldm.minimax.model import Attention, MiniMaxH3Model
 from comfy.ldm.modules.attention import AttentionTensorContainer, optimized_attention
 
-from .latent_composite import composite_mask
+from ..latents.latent_composite import composite_mask
 
 
 def join_conditioning(conditioning):

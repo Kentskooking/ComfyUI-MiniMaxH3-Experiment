@@ -7,7 +7,7 @@ import torch
 
 import comfy.model_management
 from comfy.ldm.modules.attention import attention_pytorch
-from h3_guider_test.regional_attention import RegionalRouting
+from h3_guider_test.sampling.regional_attention import RegionalRouting
 
 
 class RegionalCacheTests(unittest.TestCase):

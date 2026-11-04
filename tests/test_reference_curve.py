@@ -6,7 +6,7 @@ import test_masked_guider as harness
 import torch
 from comfy_extras.nodes_custom_sampler import BasicGuider
 
-curve = sys.modules["h3_guider_test.reference_curve"]
+curve = sys.modules["h3_guider_test.conditioning.reference_curve"]
 Blend = reference_tests.Blend
 
 

@@ -14,4 +14,4 @@ Start with the [concentric canvas workflow](example_workflows/MiniMax_H3_Concent
 
 Examples require VideoHelperSuite, KJNodes, and Essentials. Models are not included.
 
-[Example setup](example_workflows/README.md) · [Node reference](docs/NODES.md) · [MIT license](LICENSE)
+[Example setup](example_workflows/README.md) · [Node reference](docs/NODES.md) · [Code map](docs/DEVELOPMENT.md) · [MIT license](LICENSE)

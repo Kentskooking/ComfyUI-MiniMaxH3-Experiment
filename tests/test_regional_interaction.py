@@ -11,8 +11,8 @@ from comfy.ldm.minimax.model import PackedLayout
 from comfy.ldm.modules.attention import attention_pytorch
 from comfy.model_patcher import ModelPatcher
 from comfy.patcher_extension import WrappersMP
-from h3_guider_test.regional_attention import join_conditioning
-from h3_guider_test.regional_interaction import InteractionRouting
+from h3_guider_test.sampling.regional_attention import join_conditioning
+from h3_guider_test.sampling.regional_interaction import InteractionRouting
 
 Node = harness.pack.NODE_CLASS_MAPPINGS["H3ExperimentsRegionalInteractionGuider"]
 OriginalNode = harness.pack.NODE_CLASS_MAPPINGS["H3ExperimentsRegionalAttentionGuider"]

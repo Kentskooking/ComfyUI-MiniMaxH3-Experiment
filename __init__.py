@@ -1,13 +1,13 @@
-from .latent_composite import H3LatentCompositeMasked
-from .masked_guider import H3MaskedConditioningGuider
-from .regional_attention import H3RegionalAttentionGuider
-from .regional_interaction import H3RegionalInteractionGuider
-from .continuation import H3ContinuationSampler, H3LoadContinuationState
-from .mask_profile import H3MaskProfile
-from .mask_profile_preview import H3MaskProfilePreview
-from .reference_blend import H3OmniReferenceBlend
-from .virtual_head_start import H3VirtualHeadStart
-from .timeline_offset import H3GeneratedTimelineOffset
+from .latents.latent_composite import H3LatentCompositeMasked
+from .sampling.masked_guider import H3MaskedConditioningGuider
+from .sampling.regional_attention import H3RegionalAttentionGuider
+from .sampling.regional_interaction import H3RegionalInteractionGuider
+from .sampling.continuation import H3ContinuationSampler, H3LoadContinuationState
+from .masks.mask_profile import H3MaskProfile
+from .masks.mask_profile_preview import H3MaskProfilePreview
+from .conditioning.reference_blend import H3OmniReferenceBlend
+from .timeline.virtual_head_start import H3VirtualHeadStart
+from .timeline.timeline_offset import H3GeneratedTimelineOffset
 
 WEB_DIRECTORY = "./web"
 

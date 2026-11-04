@@ -284,7 +284,7 @@ class GuiderTests(unittest.TestCase):
         self.assertTrue(all(isinstance(x0,nested) and isinstance(x,nested) for x0,x in previews))
 
     def test_embedding_overlap_padding_preserves_dtype_and_tags(self):
-        average = sys.modules["h3_guider_test.overlap_conditioning"].average_conditioning
+        average = sys.modules["h3_guider_test.conditioning.overlap_conditioning"].average_conditioning
         a = [torch.full((1,3,5120),2.,device=DEVICE,dtype=torch.bfloat16),{}]
         b = [torch.full((1,2,5120),6.,device=DEVICE,dtype=torch.bfloat16),{}]
         mixed, metadata = average(a,b)
@@ -295,7 +295,7 @@ class GuiderTests(unittest.TestCase):
         self.assertEqual(metadata["minimax_token_tags"].tolist(),[1,1,1])
 
     def test_embedding_overlap_rejects_incompatible_reference_pairing(self):
-        average = sys.modules["h3_guider_test.overlap_conditioning"].average_conditioning
+        average = sys.modules["h3_guider_test.conditioning.overlap_conditioning"].average_conditioning
         with self.assertRaisesRegex(ValueError,"matching image-reference slots"):
             average(self.cond(2,minimax_refs=[{"kind":"image"}]),self.cond(6))
         with self.assertRaisesRegex(ValueError,"image-token positions"):
@@ -331,7 +331,7 @@ class GuiderTests(unittest.TestCase):
         torch.testing.assert_close(audio_off, audio_predicted)
 
     def test_image_reference_overlap_rejects_unmatched_geometry_and_other_media(self):
-        average = sys.modules["h3_guider_test.overlap_conditioning"].average_conditioning
+        average = sys.modules["h3_guider_test.conditioning.overlap_conditioning"].average_conditioning
         ref = {"kind": "image", "latent_h": 2, "latent_w": 4, "latent": self.video[:, :, :1]}
         a = self.cond(2, minimax_refs=[ref])
         for incompatible in (dict(ref, latent_h=4), dict(ref, latent=self.video[:, :, :2])):

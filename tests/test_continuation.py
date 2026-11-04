@@ -17,8 +17,8 @@ from comfy.model_patcher import ModelPatcher
 from comfy.patcher_extension import WrappersMP
 from comfy_extras.nodes_custom_sampler import Noise_RandomNoise
 from comfy_extras.nodes_minimax_h3 import video_latent_t
-from h3_guider_test import continuation as c
-from h3_guider_test.regional_interaction import InteractionRouting
+from h3_guider_test.sampling import continuation as c
+from h3_guider_test.sampling.regional_interaction import InteractionRouting
 
 GuiderNode = harness.pack.NODE_CLASS_MAPPINGS["H3ExperimentsRegionalInteractionGuider"]
 

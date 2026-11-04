@@ -6,8 +6,8 @@ import torch
 import comfy.samplers
 import comfy.utils
 
-from .latent_composite import composite_mask
-from .overlap_conditioning import average_conditioning
+from ..latents.latent_composite import composite_mask
+from ..conditioning.overlap_conditioning import average_conditioning
 
 
 class H3MaskedGuider(comfy.samplers.CFGGuider):
