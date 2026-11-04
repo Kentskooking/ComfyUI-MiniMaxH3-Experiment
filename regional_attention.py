@@ -215,7 +215,7 @@ class H3RegionalAttentionGuider:
             "query_chunk": ("INT", {"default": 512, "min": 64, "max": 4096, "step": 64,
                                       "tooltip": "Attention query rows per chunk. All keys remain visible. Smaller uses less temporary mask memory; larger reduces kernel launches."}),
         }, "optional": {
-            "mask_cache_mb": ("INT", {"default": 256, "min": 0, "max": 2048, "step": 64,
+            "mask_cache_mb": ("INT", {"default": 256, "min": 0, "max": 8192, "step": 64,
                                       "tooltip": "Maximum MiB for reusing regional attention masks within one sampling cycle. 0 disables reuse. Automatically limited to a quarter of free memory above ComfyUI's inference reserve; released after each cycle. Does not cache model attention results."}),
         }}
 
